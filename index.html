@@ -29,9 +29,17 @@
       <input id="fileInput" type="file" accept="application/pdf,image/*" style="display:none" />
 
       <div id="fileInfo" style="margin-top:10px; opacity:0.95;"></div>
+
+      <!-- Image preview -->
       <img id="imagePreview" alt="" style="display:none; margin-top:10px; width:100%; border-radius:12px;" />
 
-      <!-- Text input fallback -->
+      <!-- OCR controls -->
+      <button id="ocrBtn" class="btn" type="button" style="margin-top:10px; width:100%; display:none;">
+        Распознать текст (OCR)
+      </button>
+      <div id="ocrStatus" style="margin-top:8px; opacity:0.9; display:none;"></div>
+
+      <!-- Text input -->
       <div style="margin-top:14px;">
         <label id="pasteLabel" for="textInput" style="display:block; margin-bottom:8px; opacity:0.95;">
           Вставьте текст письма (если OCR ещё не подключен)
@@ -55,23 +63,23 @@
       </div>
 
       <p class="hint" id="hint" style="margin-top:12px;">
-        Шаг 3A: можно вставить текст письма и получить первичную оценку. Далее подключим OCR.
+        Шаг: загрузите фото письма → нажмите OCR → затем Анализировать.
       </p>
     </div>
 
-    <small class="version">v0.6 · Text input + first decision</small>
+    <small class="version">v0.7 · Image OCR (Tesseract) + analyze</small>
   </div>
 
   <!-- Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
+  <!-- Tesseract.js (OCR in browser) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
   <script>
-    // Telegram Mini App init (safe)
+    // Telegram init (safe)
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-    }
+    if (tg) { tg.ready(); tg.expand(); }
 
     const TEXTS = {
       ru: {
@@ -83,10 +91,15 @@
         pasteLabel: "Вставьте текст письма (если OCR ещё не подключен)",
         pastePlaceholder: "Вставьте сюда текст письма Jobcenter…",
         analyze: "Анализировать",
-        hint: "Шаг 3A: можно вставить текст письма и получить первичную оценку. Далее подключим OCR.",
+        hint: "Шаг: загрузите фото письма → нажмите OCR → затем Анализировать.",
+        ocrBtn: "Распознать текст (OCR)",
+        ocrNoImage: "Сначала выберите изображение (фото).",
+        ocrWorking: (p) => `OCR работает… ${p}%`,
+        ocrDone: "OCR готово. Текст вставлен в поле ниже.",
+        ocrFail: "OCR не получилось. Попробуйте фото чётче/ближе и без бликов.",
         fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
-        pickedPdf: "✅ PDF выбран. (OCR/parse подключим позже.) Пока можно вставить текст письма вручную ниже.",
-        pickedImage: "✅ Изображение выбрано. Показан предпросмотр. (OCR подключим позже.) Пока можно вставить текст письма вручную ниже.",
+        pickedPdf: "✅ PDF выбран. OCR для PDF добавим следующим шагом. Пока можно вставить текст вручную.",
+        pickedImage: "✅ Изображение выбрано. Можно нажать OCR.",
         unknownType: "⚠️ Неизвестный тип файла. Попробуйте PDF или изображение.",
         res_needAction: "✅ Требуется действие",
         res_noAction: "❌ Действие не требуется (скорее всего)",
@@ -95,14 +108,14 @@
         details_needAction: (deadline) =>
           `Похоже, Jobcenter ожидает от вас действие.\n` +
           (deadline ? `Обнаружен возможный срок: ${deadline}\n` : "") +
-          `Что делать дальше: проверьте, что именно требуют (документы/ответ/явка) и подготовьте ответ/действие.`,
+          `Следующий шаг: проверьте, что именно требуют (документы/ответ/явка) и подготовьте действие.`,
         details_noAction:
-          `Похоже, это уведомление/фонная информация.\n` +
+          `Похоже, это уведомление/информация.\n` +
           `Если в тексте нет просьбы прислать документы, прийти в термин или ответить — часто действие не требуется.\n` +
-          `Но если сомневаетесь — покажите письмо специалисту.`,
+          `Если сомневаетесь — лучше перепроверить.`,
         details_unclear:
-          `Текст не содержит явных сигналов.\n` +
-          `Скорее всего нужно: увидеть заголовок/первый абзац и есть ли слова: "Bitte", "fordern", "Frist", "Termin".`
+          `Сигналы неочевидны.\n` +
+          `Для точности нужны 1–2 абзаца, где есть просьба/срок/термин (Bitte/Frist/Termin).`
       },
       ua: {
         title: "Перевірка листа Jobcenter",
@@ -113,149 +126,165 @@
         pasteLabel: "Вставте текст листа (якщо OCR ще не підключено)",
         pastePlaceholder: "Вставте сюди текст листа Jobcenter…",
         analyze: "Аналізувати",
-        hint: "Крок 3A: можна вставити текст листа і отримати первинну оцінку. Далі підключимо OCR.",
+        hint: "Крок: завантажте фото → натисніть OCR → потім Аналізувати.",
+        ocrBtn: "Розпізнати текст (OCR)",
+        ocrNoImage: "Спочатку виберіть зображення (фото).",
+        ocrWorking: (p) => `OCR працює… ${p}%`,
+        ocrDone: "OCR готово. Текст вставлено нижче.",
+        ocrFail: "OCR не вдалося. Спробуйте чіткіше фото без відблисків.",
         fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
-        pickedPdf: "✅ PDF обрано. (OCR/parse підключимо пізніше.) Поки можна вставити текст листа вручну нижче.",
-        pickedImage: "✅ Зображення обрано. Показано попередній перегляд. (OCR підключимо пізніше.) Поки можна вставити текст листа вручну нижче.",
+        pickedPdf: "✅ PDF обрано. OCR для PDF додамо наступним кроком. Поки можна вставити текст вручну.",
+        pickedImage: "✅ Зображення обрано. Можна натиснути OCR.",
         unknownType: "⚠️ Невідомий тип файлу. Спробуйте PDF або зображення.",
         res_needAction: "✅ Потрібна дія",
         res_noAction: "❌ Дія не потрібна (ймовірно)",
         res_unclear: "⚠️ Незрозуміло — потрібна перевірка",
-        res_empty: "Вставте текст листа — хоча б 2–3 рядки.",
+        res_empty: "Вставте текст — хоча б 2–3 рядки.",
         details_needAction: (deadline) =>
           `Схоже, Jobcenter очікує від вас дію.\n` +
-          (deadline ? `Знайдено можливий строк: ${deadline}\n` : "") +
-          `Що робити далі: перевірте, що саме вимагають (документи/відповідь/термін) і підготуйте дію.`,
+          (deadline ? `Можливий строк: ${deadline}\n` : "") +
+          `Далі: перевірте, що саме вимагають, і підготуйте дію.`,
         details_noAction:
           `Схоже, це повідомлення/інформація.\n` +
-          `Якщо в тексті немає прохання надіслати документи, прийти на термін або відповісти — часто дія не потрібна.\n` +
-          `Якщо сумніваєтесь — покажіть лист спеціалісту.`,
+          `Якщо немає прохання надати документи/прийти/відповісти — часто дія не потрібна.\n` +
+          `Якщо сумніваєтесь — переперевірте.`,
         details_unclear:
-          `Немає явних сигналів.\n` +
-          `Ймовірно потрібно побачити заголовок/перший абзац і слова: "Bitte", "fordern", "Frist", "Termin".`
+          `Сигнали неочевидні.\n` +
+          `Для точності потрібні 1–2 абзаци зі строком/терміном (Bitte/Frist/Termin).`
       }
     };
 
     let currentLang = "ru";
-
     function setLang(lang) {
       currentLang = lang;
       document.documentElement.lang = lang;
-
-      document.getElementById("title").textContent = TEXTS[lang].title;
-      document.getElementById("subtitle").textContent = TEXTS[lang].subtitle;
-      document.getElementById("chooseLang").textContent = TEXTS[lang].chooseLang;
-      document.getElementById("disclaimer").textContent = TEXTS[lang].disclaimer;
-      document.getElementById("uploadBtn").textContent = TEXTS[lang].upload;
-
-      const textInput = document.getElementById("textInput");
-      document.getElementById("pasteLabel").textContent = TEXTS[lang].pasteLabel;
+      title.textContent = TEXTS[lang].title;
+      subtitle.textContent = TEXTS[lang].subtitle;
+      chooseLang.textContent = TEXTS[lang].chooseLang;
+      disclaimer.textContent = TEXTS[lang].disclaimer;
+      uploadBtn.textContent = TEXTS[lang].upload;
+      pasteLabel.textContent = TEXTS[lang].pasteLabel;
       textInput.placeholder = TEXTS[lang].pastePlaceholder;
-
-      document.getElementById("analyzeBtn").textContent = TEXTS[lang].analyze;
-      document.getElementById("hint").textContent = TEXTS[lang].hint;
+      analyzeBtn.textContent = TEXTS[lang].analyze;
+      hint.textContent = TEXTS[lang].hint;
+      ocrBtn.textContent = TEXTS[lang].ocrBtn;
     }
 
-    // --- Simple analyzer (rules) ---
+    // --- Analyzer (same as before) ---
     function normalize(s) {
-      return (s || "")
-        .toLowerCase()
-        .replace(/\s+/g, " ")
-        .trim();
+      return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
     }
-
     function findDeadline(text) {
-      // otsib dd.mm.yyyy või dd.mm.yy või "bis zum dd.mm.yyyy" jne
       const m1 = text.match(/\b(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
       if (m1) return m1[1];
-
       const m2 = text.match(/\b(bis zum|spätestens am|frist|fristen|bis spätestens)\s+(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
       if (m2) return m2[2];
-
       return "";
     }
-
     function analyzeText(raw) {
       const t = normalize(raw);
-      if (t.length < 30) {
-        return { kind: "empty" };
-      }
+      if (t.length < 30) return { kind: "empty" };
 
-      // tugevad “tegevuse” signaalid
       const actionSignals = [
-        "bitte", "wir bitten", "sie werden gebeten", "sie sind verpflichtet",
-        "erforderlich", "nachweisen", "nachweis", "einreichen", "vorlegen",
-        "termin", "einladung", "melden sie sich", "rückmeldung",
-        "frist", "bis zum", "spätestens", "umgehend", "sofort",
-        "anhörung", "mitwirkung", "aufforderung", "fehlende unterlagen",
-        "unterlagen", "kontoauszüge", "mietvertrag"
+        "bitte","wir bitten","sie werden gebeten","sie sind verpflichtet",
+        "erforderlich","nachweisen","nachweis","einreichen","vorlegen",
+        "termin","einladung","melden sie sich","rückmeldung",
+        "frist","bis zum","spätestens","umgehend","sofort",
+        "anhörung","mitwirkung","aufforderung","fehlende unterlagen",
+        "unterlagen","kontoauszüge","mietvertrag"
       ];
-
-      // pigem info/teavitus
       const infoSignals = [
-        "bewilligung", "bescheid", "mitteilung", "information",
-        "zahlung", "auszahlung", "überweisung", "betrag",
-        "wir informieren", "zur kenntnis", "hinweis"
+        "bewilligung","bescheid","mitteilung","information",
+        "zahlung","auszahlung","überweisung","betrag",
+        "wir informieren","zur kenntnis","hinweis","änderungsbescheid"
       ];
 
-      let actionScore = 0;
-      let infoScore = 0;
-
+      let actionScore = 0, infoScore = 0;
       for (const w of actionSignals) if (t.includes(w)) actionScore++;
       for (const w of infoSignals) if (t.includes(w)) infoScore++;
 
       const deadline = findDeadline(t);
 
-      // Otsus (lihtne, konservatiivne)
       if (actionScore >= 2 || (actionScore >= 1 && (t.includes("frist") || t.includes("termin") || deadline))) {
         return { kind: "needAction", deadline };
       }
-
-      if (infoScore >= 2 && actionScore === 0) {
-        return { kind: "noAction" };
-      }
-
+      if (infoScore >= 2 && actionScore === 0) return { kind: "noAction" };
       return { kind: "unclear" };
     }
-
     function showResult(kind, deadline) {
-      const box = document.getElementById("resultBox");
-      const title = document.getElementById("resultTitle");
-      const details = document.getElementById("resultDetails");
-
-      box.style.display = "block";
-
+      resultBox.style.display = "block";
       if (kind === "empty") {
-        title.textContent = TEXTS[currentLang].res_unclear;
-        details.textContent = TEXTS[currentLang].res_empty;
+        resultTitle.textContent = TEXTS[currentLang].res_unclear;
+        resultDetails.textContent = TEXTS[currentLang].res_empty;
         return;
       }
-
       if (kind === "needAction") {
-        title.textContent = TEXTS[currentLang].res_needAction;
-        details.textContent = TEXTS[currentLang].details_needAction(deadline || "");
+        resultTitle.textContent = TEXTS[currentLang].res_needAction;
+        resultDetails.textContent = TEXTS[currentLang].details_needAction(deadline || "");
         return;
       }
-
       if (kind === "noAction") {
-        title.textContent = TEXTS[currentLang].res_noAction;
-        details.textContent = TEXTS[currentLang].details_noAction;
+        resultTitle.textContent = TEXTS[currentLang].res_noAction;
+        resultDetails.textContent = TEXTS[currentLang].details_noAction;
         return;
       }
+      resultTitle.textContent = TEXTS[currentLang].res_unclear;
+      resultDetails.textContent = TEXTS[currentLang].details_unclear;
+    }
 
-      title.textContent = TEXTS[currentLang].res_unclear;
-      details.textContent = TEXTS[currentLang].details_unclear;
+    // --- Helpers: downscale image for faster OCR ---
+    async function downscaleImageToDataUrl(file, maxSide = 1600) {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.src = url;
+      await new Promise((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej(new Error("Image load failed"));
+      });
+
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      const scale = Math.min(1, maxSide / Math.max(w, h));
+      const nw = Math.round(w * scale);
+      const nh = Math.round(h * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = nw;
+      canvas.height = nh;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, nw, nh);
+
+      URL.revokeObjectURL(url);
+      return canvas.toDataURL("image/jpeg", 0.9);
     }
 
     // DOM
+    const title = document.getElementById("title");
+    const subtitle = document.getElementById("subtitle");
+    const chooseLang = document.getElementById("chooseLang");
+    const disclaimer = document.getElementById("disclaimer");
+
     const btnRu = document.getElementById("btnRu");
     const btnUa = document.getElementById("btnUa");
     const uploadBtn = document.getElementById("uploadBtn");
     const fileInput = document.getElementById("fileInput");
     const fileInfo = document.getElementById("fileInfo");
     const imagePreview = document.getElementById("imagePreview");
+
+    const ocrBtn = document.getElementById("ocrBtn");
+    const ocrStatus = document.getElementById("ocrStatus");
+
+    const pasteLabel = document.getElementById("pasteLabel");
     const textInput = document.getElementById("textInput");
     const analyzeBtn = document.getElementById("analyzeBtn");
+
+    const resultBox = document.getElementById("resultBox");
+    const resultTitle = document.getElementById("resultTitle");
+    const resultDetails = document.getElementById("resultDetails");
+    const hint = document.getElementById("hint");
+
+    let currentFile = null;
+    let currentFileKind = null; // 'image' | 'pdf' | null
 
     // Events
     btnRu.addEventListener("click", () => setLang("ru"));
@@ -264,18 +293,23 @@
     uploadBtn.addEventListener("click", () => fileInput.click());
 
     fileInput.addEventListener("change", () => {
-      // reset upload UI
+      // reset
       fileInfo.textContent = "";
       imagePreview.style.display = "none";
       imagePreview.src = "";
       imagePreview.alt = "";
+      ocrBtn.style.display = "none";
+      ocrStatus.style.display = "none";
+      ocrStatus.textContent = "";
+      resultBox.style.display = "none";
 
       const file = fileInput.files && fileInput.files[0];
       if (!file) return;
 
+      currentFile = file;
+
       const kb = Math.round(file.size / 1024);
       const mime = (file.type || "").toLowerCase();
-
       const isPdf = mime === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
       const isImage = mime.startsWith("image/");
       const typeLabel = mime ? mime : "unknown";
@@ -283,19 +317,70 @@
       fileInfo.textContent = TEXTS[currentLang].fileInfo(file.name, kb, typeLabel);
 
       if (isPdf) {
-        // guidance only
-        // eslint-disable-next-line no-unused-expressions
-        document.getElementById("resultBox").style.display = "none";
+        currentFileKind = "pdf";
+        // пока без PDF OCR
+        ocrBtn.style.display = "none";
+        ocrStatus.style.display = "block";
+        ocrStatus.textContent = TEXTS[currentLang].pickedPdf;
         return;
       }
 
       if (isImage) {
+        currentFileKind = "image";
         const url = URL.createObjectURL(file);
         imagePreview.src = url;
         imagePreview.alt = file.name;
         imagePreview.style.display = "block";
-        document.getElementById("resultBox").style.display = "none";
+
+        ocrBtn.style.display = "block";
+        ocrStatus.style.display = "block";
+        ocrStatus.textContent = TEXTS[currentLang].pickedImage;
         return;
+      }
+
+      currentFileKind = null;
+      ocrStatus.style.display = "block";
+      ocrStatus.textContent = TEXTS[currentLang].unknownType;
+    });
+
+    ocrBtn.addEventListener("click", async () => {
+      if (!currentFile || currentFileKind !== "image") {
+        ocrStatus.style.display = "block";
+        ocrStatus.textContent = TEXTS[currentLang].ocrNoImage;
+        return;
+      }
+
+      try {
+        ocrBtn.disabled = true;
+        ocrStatus.style.display = "block";
+        ocrStatus.textContent = TEXTS[currentLang].ocrWorking(0);
+
+        // downscale for speed
+        const dataUrl = await downscaleImageToDataUrl(currentFile, 1600);
+
+        // OCR languages: German + Russian + Ukrainian (helps with mixed letters)
+        const lang = "deu+rus+ukr";
+
+        const { data } = await Tesseract.recognize(dataUrl, lang, {
+          logger: (m) => {
+            if (m && m.status === "recognizing text" && typeof m.progress === "number") {
+              const pct = Math.round(m.progress * 100);
+              ocrStatus.textContent = TEXTS[currentLang].ocrWorking(pct);
+            }
+          }
+        });
+
+        const text = (data && data.text) ? data.text.trim() : "";
+        if (text.length > 0) {
+          textInput.value = text;
+          ocrStatus.textContent = TEXTS[currentLang].ocrDone;
+        } else {
+          ocrStatus.textContent = TEXTS[currentLang].ocrFail;
+        }
+      } catch (e) {
+        ocrStatus.textContent = TEXTS[currentLang].ocrFail;
+      } finally {
+        ocrBtn.disabled = false;
       }
     });
 
