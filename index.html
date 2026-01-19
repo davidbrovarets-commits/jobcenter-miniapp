@@ -26,7 +26,12 @@
 
     <button class="primary" disabled>
       Загрузить письмо (скоро)
-    </button>
+    <input id="fileInput" type="file" accept="application/pdf,image/*" style="display:none" />
+<button id="uploadBtn" class="btn">Загрузить письмо</button>
+
+<div id="fileInfo" style="margin-top:10px; opacity:0.9;"></div>
+<pre id="rawText" style="margin-top:10px; white-space:pre-wrap;"></pre>
+
 
     <p class="hint">
       Сейчас это демо-экран. Следующий шаг — подключить загрузку файла и анализ.
@@ -62,7 +67,24 @@ function setLang(lang) {
   document.getElementById("disclaimer").innerText = TEXTS[lang].disclaimer;
   document.querySelector(".hint").innerText = TEXTS[lang].hint;
 }
+<script>
+  const uploadBtn = document.getElementById('uploadBtn');
+  const fileInput = document.getElementById('fileInput');
+  const fileInfo  = document.getElementById('fileInfo');
+  const rawText   = document.getElementById('rawText');
+
+  uploadBtn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+
+    fileInfo.textContent = `Файл: ${file.name} (${Math.round(file.size/1024)} KB)`;
+    rawText.textContent = 'Файл загружен. Следующий шаг — подключить распознавание текста (OCR).';
+  });
 </script>
+
 
 </body>
 </html>
+
