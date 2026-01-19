@@ -24,23 +24,42 @@
         Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.
       </p>
 
+      <!-- Upload -->
       <button id="uploadBtn" class="btn" type="button">Загрузить письмо</button>
       <input id="fileInput" type="file" accept="application/pdf,image/*" style="display:none" />
 
       <div id="fileInfo" style="margin-top:10px; opacity:0.95;"></div>
-
-      <!-- Pildi eelvaade -->
       <img id="imagePreview" alt="" style="display:none; margin-top:10px; width:100%; border-radius:12px;" />
 
-      <!-- Teated / debug -->
-      <pre id="rawText" style="margin-top:10px; white-space:pre-wrap;"></pre>
+      <!-- Text input fallback -->
+      <div style="margin-top:14px;">
+        <label id="pasteLabel" for="textInput" style="display:block; margin-bottom:8px; opacity:0.95;">
+          Вставьте текст письма (если OCR ещё не подключен)
+        </label>
+        <textarea
+          id="textInput"
+          rows="7"
+          placeholder="Вставьте сюда текст письма Jobcenter…"
+          style="width:100%; padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.12); color:inherit; resize:vertical;"
+        ></textarea>
 
-      <p class="hint" id="hint">
-        Сейчас это демо-экран. Следующий шаг — подключить загрузку файла и анализ.
+        <button id="analyzeBtn" class="btn" type="button" style="margin-top:10px; width:100%;">
+          Анализировать
+        </button>
+      </div>
+
+      <!-- Result -->
+      <div id="resultBox" style="display:none; margin-top:12px; padding:12px; border-radius:12px; background:rgba(0,0,0,0.12);">
+        <div id="resultTitle" style="font-weight:700; margin-bottom:6px;"></div>
+        <div id="resultDetails" style="white-space:pre-wrap; opacity:0.95;"></div>
+      </div>
+
+      <p class="hint" id="hint" style="margin-top:12px;">
+        Шаг 3A: можно вставить текст письма и получить первичную оценку. Далее подключим OCR.
       </p>
     </div>
 
-    <small class="version">v0.5 · File type detect + image preview</small>
+    <small class="version">v0.6 · Text input + first decision</small>
   </div>
 
   <!-- Telegram Mini App SDK -->
@@ -59,29 +78,61 @@
         title: "Проверка письма Jobcenter",
         subtitle: "Помогаем понять, требуется ли действие по письму.",
         chooseLang: "Выберите язык",
-        disclaimer:
-          "Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.",
-        hint:
-          "Шаг 2: определяем тип файла (PDF/картинка). Следующий шаг — извлечь текст (OCR/parse).",
+        disclaimer: "Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.",
         upload: "Загрузить письмо",
+        pasteLabel: "Вставьте текст письма (если OCR ещё не подключен)",
+        pastePlaceholder: "Вставьте сюда текст письма Jobcenter…",
+        analyze: "Анализировать",
+        hint: "Шаг 3A: можно вставить текст письма и получить первичную оценку. Далее подключим OCR.",
         fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
-        pickedPdf: "✅ PDF выбран. Следующий шаг — извлечение текста из PDF (parse/OCR).",
-        pickedImage: "✅ Изображение выбрано. Показан предпросмотр. Следующий шаг — OCR.",
-        unknownType: "⚠️ Неизвестный тип файла. Попробуйте PDF или изображение."
+        pickedPdf: "✅ PDF выбран. (OCR/parse подключим позже.) Пока можно вставить текст письма вручную ниже.",
+        pickedImage: "✅ Изображение выбрано. Показан предпросмотр. (OCR подключим позже.) Пока можно вставить текст письма вручную ниже.",
+        unknownType: "⚠️ Неизвестный тип файла. Попробуйте PDF или изображение.",
+        res_needAction: "✅ Требуется действие",
+        res_noAction: "❌ Действие не требуется (скорее всего)",
+        res_unclear: "⚠️ Неясно — нужна проверка",
+        res_empty: "Введите или вставьте текст письма — хотя бы 2–3 строки.",
+        details_needAction: (deadline) =>
+          `Похоже, Jobcenter ожидает от вас действие.\n` +
+          (deadline ? `Обнаружен возможный срок: ${deadline}\n` : "") +
+          `Что делать дальше: проверьте, что именно требуют (документы/ответ/явка) и подготовьте ответ/действие.`,
+        details_noAction:
+          `Похоже, это уведомление/фонная информация.\n` +
+          `Если в тексте нет просьбы прислать документы, прийти в термин или ответить — часто действие не требуется.\n` +
+          `Но если сомневаетесь — покажите письмо специалисту.`,
+        details_unclear:
+          `Текст не содержит явных сигналов.\n` +
+          `Скорее всего нужно: увидеть заголовок/первый абзац и есть ли слова: "Bitte", "fordern", "Frist", "Termin".`
       },
       ua: {
         title: "Перевірка листа Jobcenter",
         subtitle: "Допомагаємо зрозуміти, чи потрібна дія за листом.",
         chooseLang: "Оберіть мову",
-        disclaimer:
-          "Це не юридична консультація. Сервіс показує лише: чи потрібна дія за листом.",
-        hint:
-          "Крок 2: визначаємо тип файлу (PDF/зображення). Далі — витяг тексту (OCR/parse).",
+        disclaimer: "Це не юридична консультація. Сервіс показує лише: чи потрібна дія за листом.",
         upload: "Завантажити лист",
+        pasteLabel: "Вставте текст листа (якщо OCR ще не підключено)",
+        pastePlaceholder: "Вставте сюди текст листа Jobcenter…",
+        analyze: "Аналізувати",
+        hint: "Крок 3A: можна вставити текст листа і отримати первинну оцінку. Далі підключимо OCR.",
         fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
-        pickedPdf: "✅ PDF обрано. Далі — витяг тексту з PDF (parse/OCR).",
-        pickedImage: "✅ Зображення обрано. Показано попередній перегляд. Далі — OCR.",
-        unknownType: "⚠️ Невідомий тип файлу. Спробуйте PDF або зображення."
+        pickedPdf: "✅ PDF обрано. (OCR/parse підключимо пізніше.) Поки можна вставити текст листа вручну нижче.",
+        pickedImage: "✅ Зображення обрано. Показано попередній перегляд. (OCR підключимо пізніше.) Поки можна вставити текст листа вручну нижче.",
+        unknownType: "⚠️ Невідомий тип файлу. Спробуйте PDF або зображення.",
+        res_needAction: "✅ Потрібна дія",
+        res_noAction: "❌ Дія не потрібна (ймовірно)",
+        res_unclear: "⚠️ Незрозуміло — потрібна перевірка",
+        res_empty: "Вставте текст листа — хоча б 2–3 рядки.",
+        details_needAction: (deadline) =>
+          `Схоже, Jobcenter очікує від вас дію.\n` +
+          (deadline ? `Знайдено можливий строк: ${deadline}\n` : "") +
+          `Що робити далі: перевірте, що саме вимагають (документи/відповідь/термін) і підготуйте дію.`,
+        details_noAction:
+          `Схоже, це повідомлення/інформація.\n` +
+          `Якщо в тексті немає прохання надіслати документи, прийти на термін або відповісти — часто дія не потрібна.\n` +
+          `Якщо сумніваєтесь — покажіть лист спеціалісту.`,
+        details_unclear:
+          `Немає явних сигналів.\n` +
+          `Ймовірно потрібно побачити заголовок/перший абзац і слова: "Bitte", "fordern", "Frist", "Termin".`
       }
     };
 
@@ -95,8 +146,105 @@
       document.getElementById("subtitle").textContent = TEXTS[lang].subtitle;
       document.getElementById("chooseLang").textContent = TEXTS[lang].chooseLang;
       document.getElementById("disclaimer").textContent = TEXTS[lang].disclaimer;
-      document.getElementById("hint").textContent = TEXTS[lang].hint;
       document.getElementById("uploadBtn").textContent = TEXTS[lang].upload;
+
+      const textInput = document.getElementById("textInput");
+      document.getElementById("pasteLabel").textContent = TEXTS[lang].pasteLabel;
+      textInput.placeholder = TEXTS[lang].pastePlaceholder;
+
+      document.getElementById("analyzeBtn").textContent = TEXTS[lang].analyze;
+      document.getElementById("hint").textContent = TEXTS[lang].hint;
+    }
+
+    // --- Simple analyzer (rules) ---
+    function normalize(s) {
+      return (s || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function findDeadline(text) {
+      // otsib dd.mm.yyyy või dd.mm.yy või "bis zum dd.mm.yyyy" jne
+      const m1 = text.match(/\b(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
+      if (m1) return m1[1];
+
+      const m2 = text.match(/\b(bis zum|spätestens am|frist|fristen|bis spätestens)\s+(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
+      if (m2) return m2[2];
+
+      return "";
+    }
+
+    function analyzeText(raw) {
+      const t = normalize(raw);
+      if (t.length < 30) {
+        return { kind: "empty" };
+      }
+
+      // tugevad “tegevuse” signaalid
+      const actionSignals = [
+        "bitte", "wir bitten", "sie werden gebeten", "sie sind verpflichtet",
+        "erforderlich", "nachweisen", "nachweis", "einreichen", "vorlegen",
+        "termin", "einladung", "melden sie sich", "rückmeldung",
+        "frist", "bis zum", "spätestens", "umgehend", "sofort",
+        "anhörung", "mitwirkung", "aufforderung", "fehlende unterlagen",
+        "unterlagen", "kontoauszüge", "mietvertrag"
+      ];
+
+      // pigem info/teavitus
+      const infoSignals = [
+        "bewilligung", "bescheid", "mitteilung", "information",
+        "zahlung", "auszahlung", "überweisung", "betrag",
+        "wir informieren", "zur kenntnis", "hinweis"
+      ];
+
+      let actionScore = 0;
+      let infoScore = 0;
+
+      for (const w of actionSignals) if (t.includes(w)) actionScore++;
+      for (const w of infoSignals) if (t.includes(w)) infoScore++;
+
+      const deadline = findDeadline(t);
+
+      // Otsus (lihtne, konservatiivne)
+      if (actionScore >= 2 || (actionScore >= 1 && (t.includes("frist") || t.includes("termin") || deadline))) {
+        return { kind: "needAction", deadline };
+      }
+
+      if (infoScore >= 2 && actionScore === 0) {
+        return { kind: "noAction" };
+      }
+
+      return { kind: "unclear" };
+    }
+
+    function showResult(kind, deadline) {
+      const box = document.getElementById("resultBox");
+      const title = document.getElementById("resultTitle");
+      const details = document.getElementById("resultDetails");
+
+      box.style.display = "block";
+
+      if (kind === "empty") {
+        title.textContent = TEXTS[currentLang].res_unclear;
+        details.textContent = TEXTS[currentLang].res_empty;
+        return;
+      }
+
+      if (kind === "needAction") {
+        title.textContent = TEXTS[currentLang].res_needAction;
+        details.textContent = TEXTS[currentLang].details_needAction(deadline || "");
+        return;
+      }
+
+      if (kind === "noAction") {
+        title.textContent = TEXTS[currentLang].res_noAction;
+        details.textContent = TEXTS[currentLang].details_noAction;
+        return;
+      }
+
+      title.textContent = TEXTS[currentLang].res_unclear;
+      details.textContent = TEXTS[currentLang].details_unclear;
     }
 
     // DOM
@@ -105,8 +253,9 @@
     const uploadBtn = document.getElementById("uploadBtn");
     const fileInput = document.getElementById("fileInput");
     const fileInfo = document.getElementById("fileInfo");
-    const rawText = document.getElementById("rawText");
     const imagePreview = document.getElementById("imagePreview");
+    const textInput = document.getElementById("textInput");
+    const analyzeBtn = document.getElementById("analyzeBtn");
 
     // Events
     btnRu.addEventListener("click", () => setLang("ru"));
@@ -115,9 +264,8 @@
     uploadBtn.addEventListener("click", () => fileInput.click());
 
     fileInput.addEventListener("change", () => {
-      // reset UI
+      // reset upload UI
       fileInfo.textContent = "";
-      rawText.textContent = "";
       imagePreview.style.display = "none";
       imagePreview.src = "";
       imagePreview.alt = "";
@@ -128,32 +276,33 @@
       const kb = Math.round(file.size / 1024);
       const mime = (file.type || "").toLowerCase();
 
-      // Kas PDF?
       const isPdf = mime === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-      // Kas pilt?
       const isImage = mime.startsWith("image/");
-
-      let typeLabel = mime ? mime : "unknown";
+      const typeLabel = mime ? mime : "unknown";
 
       fileInfo.textContent = TEXTS[currentLang].fileInfo(file.name, kb, typeLabel);
 
       if (isPdf) {
-        rawText.textContent = TEXTS[currentLang].pickedPdf;
+        // guidance only
+        // eslint-disable-next-line no-unused-expressions
+        document.getElementById("resultBox").style.display = "none";
         return;
       }
 
       if (isImage) {
-        // image preview
         const url = URL.createObjectURL(file);
         imagePreview.src = url;
         imagePreview.alt = file.name;
         imagePreview.style.display = "block";
-
-        rawText.textContent = TEXTS[currentLang].pickedImage;
+        document.getElementById("resultBox").style.display = "none";
         return;
       }
+    });
 
-      rawText.textContent = TEXTS[currentLang].unknownType;
+    analyzeBtn.addEventListener("click", () => {
+      const raw = textInput.value || "";
+      const res = analyzeText(raw);
+      showResult(res.kind, res.deadline || "");
     });
 
     // init
