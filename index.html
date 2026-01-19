@@ -4,8 +4,6 @@
   <meta charset="UTF-8" />
   <title>Jobcenter Letter Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Kui style.css puudub või annab 404, võib disain olla “katki”.
-       Võid selle hiljem tagasi lülitada. -->
   <link rel="stylesheet" href="style.css" />
 </head>
 
@@ -26,11 +24,15 @@
         Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.
       </p>
 
-      <!-- ÜKS NUPP + ÜKS INPUT (peidetud) -->
       <button id="uploadBtn" class="btn" type="button">Загрузить письмо</button>
       <input id="fileInput" type="file" accept="application/pdf,image/*" style="display:none" />
 
-      <div id="fileInfo" style="margin-top:10px; opacity:0.9;"></div>
+      <div id="fileInfo" style="margin-top:10px; opacity:0.95;"></div>
+
+      <!-- Pildi eelvaade -->
+      <img id="imagePreview" alt="" style="display:none; margin-top:10px; width:100%; border-radius:12px;" />
+
+      <!-- Teated / debug -->
       <pre id="rawText" style="margin-top:10px; white-space:pre-wrap;"></pre>
 
       <p class="hint" id="hint">
@@ -38,14 +40,14 @@
       </p>
     </div>
 
-    <small class="version">v0.4 · Telegram init added</small>
+    <small class="version">v0.5 · File type detect + image preview</small>
   </div>
 
   <!-- Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <script>
-    // Telegram Mini App init (safe: ei riku brauseris)
+    // Telegram Mini App init (safe)
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     if (tg) {
       tg.ready();
@@ -60,11 +62,12 @@
         disclaimer:
           "Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.",
         hint:
-          "Сейчас это демо-экран. Следующий шаг — подключить распознавание текста (OCR) и анализ.",
+          "Шаг 2: определяем тип файла (PDF/картинка). Следующий шаг — извлечь текст (OCR/parse).",
         upload: "Загрузить письмо",
-        fileInfo: (name, kb) => `Файл: ${name} (${kb} KB)`,
-        afterPick:
-          "Файл загружен. Следующий шаг — подключить распознавание текста (OCR)."
+        fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
+        pickedPdf: "✅ PDF выбран. Следующий шаг — извлечение текста из PDF (parse/OCR).",
+        pickedImage: "✅ Изображение выбрано. Показан предпросмотр. Следующий шаг — OCR.",
+        unknownType: "⚠️ Неизвестный тип файла. Попробуйте PDF или изображение."
       },
       ua: {
         title: "Перевірка листа Jobcenter",
@@ -73,11 +76,12 @@
         disclaimer:
           "Це не юридична консультація. Сервіс показує лише: чи потрібна дія за листом.",
         hint:
-          "Це демо-екран. Наступний крок — підключити розпізнавання тексту (OCR) та аналіз.",
+          "Крок 2: визначаємо тип файлу (PDF/зображення). Далі — витяг тексту (OCR/parse).",
         upload: "Завантажити лист",
-        fileInfo: (name, kb) => `Файл: ${name} (${kb} KB)`,
-        afterPick:
-          "Файл завантажено. Наступний крок — підключити розпізнавання тексту (OCR)."
+        fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
+        pickedPdf: "✅ PDF обрано. Далі — витяг тексту з PDF (parse/OCR).",
+        pickedImage: "✅ Зображення обрано. Показано попередній перегляд. Далі — OCR.",
+        unknownType: "⚠️ Невідомий тип файлу. Спробуйте PDF або зображення."
       }
     };
 
@@ -102,6 +106,7 @@
     const fileInput = document.getElementById("fileInput");
     const fileInfo = document.getElementById("fileInfo");
     const rawText = document.getElementById("rawText");
+    const imagePreview = document.getElementById("imagePreview");
 
     // Events
     btnRu.addEventListener("click", () => setLang("ru"));
@@ -110,16 +115,45 @@
     uploadBtn.addEventListener("click", () => fileInput.click());
 
     fileInput.addEventListener("change", () => {
-      // puhasta eelmised teated
+      // reset UI
       fileInfo.textContent = "";
       rawText.textContent = "";
+      imagePreview.style.display = "none";
+      imagePreview.src = "";
+      imagePreview.alt = "";
 
       const file = fileInput.files && fileInput.files[0];
       if (!file) return;
 
       const kb = Math.round(file.size / 1024);
-      fileInfo.textContent = TEXTS[currentLang].fileInfo(file.name, kb);
-      rawText.textContent = TEXTS[currentLang].afterPick;
+      const mime = (file.type || "").toLowerCase();
+
+      // Kas PDF?
+      const isPdf = mime === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      // Kas pilt?
+      const isImage = mime.startsWith("image/");
+
+      let typeLabel = mime ? mime : "unknown";
+
+      fileInfo.textContent = TEXTS[currentLang].fileInfo(file.name, kb, typeLabel);
+
+      if (isPdf) {
+        rawText.textContent = TEXTS[currentLang].pickedPdf;
+        return;
+      }
+
+      if (isImage) {
+        // image preview
+        const url = URL.createObjectURL(file);
+        imagePreview.src = url;
+        imagePreview.alt = file.name;
+        imagePreview.style.display = "block";
+
+        rawText.textContent = TEXTS[currentLang].pickedImage;
+        return;
+      }
+
+      rawText.textContent = TEXTS[currentLang].unknownType;
     });
 
     // init
