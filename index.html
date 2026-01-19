@@ -39,7 +39,7 @@
         <div id="tipsText" style="white-space:pre-wrap; opacity:0.95;"></div>
       </div>
 
-      <!-- OCR / PDF parse controls -->
+      <!-- Controls -->
       <button id="ocrBtn" class="btn" type="button" style="margin-top:10px; width:100%; display:none;">
         Распознать текст (OCR)
       </button>
@@ -53,8 +53,9 @@
       <!-- Text input -->
       <div style="margin-top:14px;">
         <label id="pasteLabel" for="textInput" style="display:block; margin-bottom:8px; opacity:0.95;">
-          Вставьте текст письма (если OCR ещё не подключен)
+          Текст письма (можно вставить вручную, если нужно)
         </label>
+
         <textarea
           id="textInput"
           rows="7"
@@ -62,7 +63,7 @@
           style="width:100%; padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.12); color:inherit; resize:vertical;"
         ></textarea>
 
-        <!-- Кнопку оставляем (как запасной вариант), но авто-анализ тоже работает -->
+        <!-- Оставляем кнопку как запасной вариант -->
         <button id="analyzeBtn" class="btn" type="button" style="margin-top:10px; width:100%;">
           Анализировать
         </button>
@@ -73,37 +74,37 @@
         <div id="resultTitle" style="font-weight:700; margin-bottom:6px;"></div>
         <div id="resultDetails" style="white-space:pre-wrap; opacity:0.95;"></div>
 
-        <div id="aboutBox" style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.12);">
+        <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.12);">
           <div id="aboutTitle" style="font-weight:700; margin-bottom:6px;">Кратко о письме</div>
           <div id="aboutText" style="white-space:pre-wrap; opacity:0.95;"></div>
         </div>
 
-        <div id="translateBox" style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.12);">
+        <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.12);">
           <div id="trTitle" style="font-weight:700; margin-bottom:6px;">Перевод</div>
           <div id="trText" style="white-space:pre-wrap; opacity:0.95;">
             (Скоро) Подключим AI-перевод: письмо будет переведено понятным языком независимо от результата анализа.
           </div>
-          <button id="trBtn" class="btn" type="button" style="margin-top:10px; width:100%;" disabled>
+          <button class="btn" type="button" style="margin-top:10px; width:100%;" disabled>
             Перевести (скоро)
           </button>
         </div>
       </div>
 
       <p class="hint" id="hint" style="margin-top:12px;">
-        Шаг: фото → OCR, PDF → извлечь текст. Затем анализ запускается автоматически.
+        PDF: нажмите “Извлечь текст” → если PDF защищён/особый, включится OCR 1-й страницы автоматически. Анализ запускается сам.
       </p>
     </div>
 
-    <small class="version">v0.9 · PDF text extract (pdf.js) + auto-analyze</small>
+    <small class="version">v1.0 · PDF parse (no worker) + PDF OCR fallback + auto-analyze</small>
   </div>
 
   <!-- Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- Tesseract.js (OCR) -->
+  <!-- Tesseract.js -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-  <!-- PDF.js (parse text from PDF) -->
+  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.min.js"></script>
 
   <script>
@@ -111,7 +112,8 @@
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     if (tg) { tg.ready(); tg.expand(); }
 
-    // pdf.js worker
+    // NOTE: В Telegram WebView worker часто ломается. Мы отключаем worker в getDocument().
+    // pdfjsLib.GlobalWorkerOptions.workerSrc оставляем, но основное — disableWorker:true.
     if (window.pdfjsLib) {
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.worker.min.js";
@@ -127,15 +129,14 @@
         pasteLabel: "Текст письма (можно вставить вручную, если нужно)",
         pastePlaceholder: "Вставьте сюда текст письма Jobcenter…",
         analyze: "Анализировать",
-        hint: "Шаг: фото → OCR, PDF → извлечь текст. Затем анализ запускается автоматически.",
+        hint: "PDF: нажмите “Извлечь текст” → если PDF защищён/особый, включится OCR 1-й страницы автоматически. Анализ запускается сам.",
 
         ocrBtn: "Распознать текст (OCR)",
         pdfBtn: "Извлечь текст из PDF",
-
         fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
 
         pickedImage: "✅ Изображение выбрано. Можно нажать OCR.",
-        pickedPdf: "✅ PDF выбран. Можно извлечь текст из PDF.",
+        pickedPdf: "✅ PDF выбран. Нажмите «Извлечь текст из PDF».",
         unknownType: "⚠️ Неизвестный тип файла. Попробуйте PDF или изображение.",
 
         tipsTitle: "Советы для хорошего OCR",
@@ -147,14 +148,17 @@
           "• Если размыто — сделайте фото ещё раз",
 
         status_ocr_working: (p) => `OCR работает… ${p}%`,
-        status_ocr_done: "OCR готово. Текст очищен и вставлен в поле ниже.",
+        status_ocr_done: "OCR готово. Текст очищен и вставлен в поле ниже. Анализ выполнен автоматически.",
         status_ocr_fail: "OCR не получилось. Попробуйте фото чётче/ближе и без бликов.",
 
         status_pdf_loading: "Читаю PDF…",
         status_pdf_page: (p, total) => `Извлекаю текст из PDF: страница ${p}/${total}…`,
-        status_pdf_done: (chars) => `✅ Текст из PDF извлечён (${chars} символов).`,
-        status_pdf_scanned: "⚠️ В PDF почти нет текста. Похоже, это скан — для него нужен OCR по страницам (добавим следующим шагом).",
-        status_pdf_fail: "Не удалось прочитать PDF. Попробуйте другой файл.",
+        status_pdf_done: (chars) => `✅ Текст из PDF извлечён (${chars} символов). Анализ выполнен автоматически.`,
+        status_pdf_empty: "⚠️ В PDF почти нет извлекаемого текста. Включаю OCR 1-й страницы…",
+        status_pdf_fail_to_open: "Не удалось открыть PDF (особый/защищённый формат). Включаю OCR 1-й страницы…",
+        status_pdf_ocr_page: (p) => `PDF → OCR: страница ${p}…`,
+        status_pdf_ocr_done: "✅ PDF OCR готов. Текст вставлен. Анализ выполнен автоматически.",
+        status_pdf_all_fail: "❌ Не удалось обработать PDF. Попробуйте другой файл или сделайте фото письма.",
 
         res_needAction: "✅ Требуется действие",
         res_noAction: "❌ Действие не требуется (скорее всего)",
@@ -173,7 +177,6 @@
           `Сигналы неочевидны.\n` +
           `Для точности нужны 1–2 абзаца со сроком/термином (Bitte/Frist/Termin).`,
 
-        about_title: "Кратко о письме",
         about_unknown: "Пока не удаётся надёжно определить тип письма. Добавьте 1–2 абзаца с основной частью.",
         about_payment: "Похоже на письмо о выплате/суммах (Bürgergeld, Zahlung, Betrag). Обычно это информирование.",
         about_decision: "Похоже на решение/уведомление (Bescheid/Änderungsbescheid). Часто действие не требуется, но важно проверить: есть ли просьба/срок.",
@@ -190,15 +193,14 @@
         pasteLabel: "Текст листа (можна вставити вручну, якщо потрібно)",
         pastePlaceholder: "Вставте сюди текст листа Jobcenter…",
         analyze: "Аналізувати",
-        hint: "Крок: фото → OCR, PDF → витяг тексту. Далі аналіз запускається автоматично.",
+        hint: "PDF: натисніть “Витягти текст” → якщо PDF особливий/захищений, увімкнеться OCR 1-ї сторінки. Аналіз запускається сам.",
 
         ocrBtn: "Розпізнати текст (OCR)",
         pdfBtn: "Витягти текст з PDF",
-
         fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
 
         pickedImage: "✅ Зображення обрано. Можна натиснути OCR.",
-        pickedPdf: "✅ PDF обрано. Можна витягти текст з PDF.",
+        pickedPdf: "✅ PDF обрано. Натисніть «Витягти текст з PDF».",
         unknownType: "⚠️ Невідомий тип файлу. Спробуйте PDF або зображення.",
 
         tipsTitle: "Поради для гарного OCR",
@@ -210,14 +212,17 @@
           "• Якщо розмито — зробіть фото ще раз",
 
         status_ocr_working: (p) => `OCR працює… ${p}%`,
-        status_ocr_done: "OCR готово. Текст очищено і вставлено нижче.",
+        status_ocr_done: "OCR готово. Текст очищено і вставлено нижче. Аналіз виконано автоматично.",
         status_ocr_fail: "OCR не вдалося. Спробуйте чіткіше фото без відблисків.",
 
         status_pdf_loading: "Читаю PDF…",
         status_pdf_page: (p, total) => `Витяг тексту з PDF: сторінка ${p}/${total}…`,
-        status_pdf_done: (chars) => `✅ Текст з PDF витягнуто (${chars} символів).`,
-        status_pdf_scanned: "⚠️ У PDF майже немає тексту. Схоже, це скан — для нього потрібен OCR по сторінках (додамо наступним кроком).",
-        status_pdf_fail: "Не вдалося прочитати PDF. Спробуйте інший файл.",
+        status_pdf_done: (chars) => `✅ Текст з PDF витягнуто (${chars} символів). Аналіз виконано автоматично.`,
+        status_pdf_empty: "⚠️ У PDF майже немає тексту. Вмикаю OCR 1-ї сторінки…",
+        status_pdf_fail_to_open: "Не вдалося відкрити PDF (особливий/захищений формат). Вмикаю OCR 1-ї сторінки…",
+        status_pdf_ocr_page: (p) => `PDF → OCR: сторінка ${p}…`,
+        status_pdf_ocr_done: "✅ PDF OCR готово. Текст вставлено. Аналіз виконано автоматично.",
+        status_pdf_all_fail: "❌ Не вдалося обробити PDF. Спробуйте інший файл або зробіть фото листа.",
 
         res_needAction: "✅ Потрібна дія",
         res_noAction: "❌ Дія не потрібна (ймовірно)",
@@ -236,7 +241,6 @@
           `Сигнали неочевидні.\n` +
           `Для точності потрібні 1–2 абзаци зі строком/терміном (Bitte/Frist/Termin).`,
 
-        about_title: "Коротко про лист",
         about_unknown: "Поки не вдається надійно визначити тип листа. Додайте 1–2 абзаци з основною частиною.",
         about_payment: "Схоже на лист про виплату/суми (Bürgergeld, Zahlung, Betrag). Зазвичай це інформування.",
         about_decision: "Схоже на рішення/повідомлення (Bescheid/Änderungsbescheid). Часто дія не потрібна, але перевірте: чи є прохання/строк.",
@@ -276,15 +280,12 @@
     const resultBox = document.getElementById("resultBox");
     const resultTitle = document.getElementById("resultTitle");
     const resultDetails = document.getElementById("resultDetails");
-
-    const aboutTitle = document.getElementById("aboutTitle");
     const aboutText = document.getElementById("aboutText");
-
     const hint = document.getElementById("hint");
 
     // state
     let currentFile = null;
-    let currentKind = null; // 'image'|'pdf'|null
+    let currentKind = null; // 'image' | 'pdf' | null
     let lastDownscaledCanvas = null;
     let autoTimer = null;
 
@@ -308,12 +309,10 @@
       tipsTitle.textContent = TEXTS[lang].tipsTitle;
       tipsText.textContent = TEXTS[lang].tipsText;
 
-      aboutTitle.textContent = TEXTS[lang].about_title;
-
       hint.textContent = TEXTS[lang].hint;
     }
 
-    // --- Analyzer (rules) ---
+    // --- Analyzer ---
     function normalize(s) {
       return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
     }
@@ -336,13 +335,14 @@
         "termin","einladung","melden sie sich","rückmeldung",
         "frist","bis zum","spätestens","umgehend","sofort",
         "anhörung","mitwirkung","aufforderung","fehlende unterlagen",
-        "unterlagen","kontoauszüge","mietvertrag"
+        "unterlagen","kontoauszüge","mietvertrag","formular ausfüllen","ausfüllen"
       ];
 
       const infoSignals = [
         "bewilligung","bescheid","änderungsbescheid","mitteilung","information",
         "zahlung","auszahlung","überweisung","betrag",
-        "wir informieren","zur kenntnis","hinweis","bewilligungsbescheid"
+        "wir informieren","zur kenntnis","hinweis","bewilligungsbescheid",
+        "veränderungsmitteilung"
       ];
 
       let actionScore = 0, infoScore = 0;
@@ -363,9 +363,9 @@
       if (t.length < 30) return TEXTS[currentLang].about_unknown;
 
       const hasPay = /bürgergeld|zahlung|auszahlung|betrag|überweisung|monatlich/.test(t);
-      const hasBescheid = /bescheid|änderungsbescheid|bewilligung|bewilligungsbescheid/.test(t);
+      const hasBescheid = /bescheid|änderungsbescheid|bewilligung|bewilligungsbescheid|mitteilung|veränderungsmitteilung/.test(t);
       const hasTermin = /termin|einladung|melden sie sich|vorsprechen/.test(t);
-      const hasDocs = /unterlagen|nachweis|nachweisen|einreichen|vorlegen|mitwirkung|aufforderung|fehlende/.test(t);
+      const hasDocs = /unterlagen|nachweis|nachweisen|einreichen|vorlegen|mitwirkung|aufforderung|fehlende|ausfüllen|formular/.test(t);
 
       if (hasTermin) return TEXTS[currentLang].about_appointment;
       if (hasDocs) return TEXTS[currentLang].about_documents;
@@ -406,9 +406,7 @@
 
     function scheduleAutoAnalyze() {
       if (autoTimer) clearTimeout(autoTimer);
-      autoTimer = setTimeout(() => {
-        runAnalyzeNow();
-      }, 900); // умная задержка
+      autoTimer = setTimeout(() => runAnalyzeNow(), 800);
     }
 
     // --- OCR helpers ---
@@ -447,29 +445,64 @@
       return s;
     }
 
-    // --- PDF text extract via pdf.js ---
-    async function extractTextFromPdf(file) {
-      const buf = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    async function runTesseractOnDataUrl(dataUrl, statusPrefix) {
+      const lang = "deu+rus+ukr";
+      const { data } = await Tesseract.recognize(dataUrl, lang, {
+        logger: (m) => {
+          if (m && m.status === "recognizing text" && typeof m.progress === "number") {
+            const pct = Math.round(m.progress * 100);
+            statusBox.textContent = `${statusPrefix} ${pct}%`;
+          }
+        }
+      });
+      const raw = (data && data.text) ? data.text : "";
+      return cleanOcrText(raw);
+    }
 
+    // --- PDF helpers (parse + OCR fallback) ---
+    async function openPdfNoWorker(file) {
+      const buf = await file.arrayBuffer();
+      // disableWorker:true — критично для Telegram WebView
+      return await pdfjsLib.getDocument({ data: buf, disableWorker: true }).promise;
+    }
+
+    async function extractTextFromPdf(pdf, maxPages = 3) {
       const total = pdf.numPages;
+      const pages = Math.min(total, maxPages);
       let textAll = "";
 
-      // для MVP ограничим максимум 5 страницами (быстро и стабильно)
-      const maxPages = Math.min(total, 5);
-
-      for (let i = 1; i <= maxPages; i++) {
-        statusBox.textContent = TEXTS[currentLang].status_pdf_page(i, maxPages);
+      for (let i = 1; i <= pages; i++) {
+        statusBox.textContent = TEXTS[currentLang].status_pdf_page(i, pages);
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        const strings = content.items.map(it => (it && it.str) ? it.str : "").filter(Boolean);
+        const strings = content.items
+          .map(it => (it && it.str) ? it.str : "")
+          .filter(Boolean);
         textAll += strings.join(" ") + "\n\n";
       }
-
       return textAll.trim();
     }
 
-    // --- UI reset
+    async function ocrFirstPdfPage(pdf) {
+      const pageNum = 1;
+      statusBox.textContent = TEXTS[currentLang].status_pdf_ocr_page(pageNum);
+
+      const page = await pdf.getPage(pageNum);
+      // scale 2 — читаемее, но не слишком тяжело
+      const viewport = page.getViewport({ scale: 2.0 });
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      const cleaned = await runTesseractOnDataUrl(dataUrl, "PDF → OCR…");
+      return cleaned;
+    }
+
     function resetUi() {
       fileInfo.textContent = "";
       imagePreview.style.display = "none";
@@ -494,9 +527,7 @@
     btnUa.addEventListener("click", () => setLang("ua"));
     uploadBtn.addEventListener("click", () => fileInput.click());
 
-    // Auto analyze on typing/pasting
     textInput.addEventListener("input", () => scheduleAutoAnalyze());
-
     analyzeBtn.addEventListener("click", () => runAnalyzeNow());
 
     fileInput.addEventListener("change", async () => {
@@ -509,7 +540,6 @@
 
       const kb = Math.round(file.size / 1024);
       const mime = (file.type || "").toLowerCase();
-
       const isPdf = mime === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
       const isImage = mime.startsWith("image/");
       const typeLabel = mime ? mime : "unknown";
@@ -539,7 +569,6 @@
 
         ocrBtn.style.display = "block";
 
-        // prepare downscaled for faster OCR
         try {
           const r = await downscaleImageToDataUrl(file, 1600);
           lastDownscaledCanvas = r.canvas;
@@ -561,31 +590,14 @@
         statusBox.textContent = TEXTS[currentLang].status_ocr_working(0);
 
         let dataUrl;
-        if (lastDownscaledCanvas) {
-          dataUrl = lastDownscaledCanvas.toDataURL("image/jpeg", 0.9);
-        } else {
-          const r = await downscaleImageToDataUrl(currentFile, 1600);
-          dataUrl = r.dataUrl;
-        }
+        if (lastDownscaledCanvas) dataUrl = lastDownscaledCanvas.toDataURL("image/jpeg", 0.9);
+        else dataUrl = (await downscaleImageToDataUrl(currentFile, 1600)).dataUrl;
 
-        const lang = "deu+rus+ukr";
-
-        const { data } = await Tesseract.recognize(dataUrl, lang, {
-          logger: (m) => {
-            if (m && m.status === "recognizing text" && typeof m.progress === "number") {
-              const pct = Math.round(m.progress * 100);
-              statusBox.textContent = TEXTS[currentLang].status_ocr_working(pct);
-            }
-          }
-        });
-
-        const raw = (data && data.text) ? data.text : "";
-        const cleaned = cleanOcrText(raw);
-
+        const cleaned = await runTesseractOnDataUrl(dataUrl, "OCR…");
         if (cleaned.length > 0) {
           textInput.value = cleaned;
           statusBox.textContent = TEXTS[currentLang].status_ocr_done;
-          runAnalyzeNow(); // авто-анализ сразу после OCR
+          runAnalyzeNow(); // авто-анализ после OCR
         } else {
           statusBox.textContent = TEXTS[currentLang].status_ocr_fail;
         }
@@ -599,23 +611,52 @@
     pdfBtn.addEventListener("click", async () => {
       if (!currentFile || currentKind !== "pdf") return;
 
-      try {
-        pdfBtn.disabled = true;
-        statusBox.style.display = "block";
-        statusBox.textContent = TEXTS[currentLang].status_pdf_loading;
+      pdfBtn.disabled = true;
+      statusBox.style.display = "block";
+      statusBox.textContent = TEXTS[currentLang].status_pdf_loading;
 
-        const extracted = await extractTextFromPdf(currentFile);
+      try {
+        let pdf;
+        try {
+          pdf = await openPdfNoWorker(currentFile);
+        } catch (e) {
+          // не смог даже открыть -> сразу OCR первой страницы (если получится открыть дальше — но здесь нет)
+          statusBox.textContent = TEXTS[currentLang].status_pdf_fail_to_open;
+          // Иногда открыть не получилось вообще — тогда честно падаем:
+          throw e;
+        }
+
+        // 1) Пытаемся извлечь текст
+        let extracted = "";
+        try {
+          extracted = await extractTextFromPdf(pdf, 3);
+        } catch (e) {
+          extracted = "";
+        }
 
         if (extracted && extracted.length >= 60) {
           textInput.value = extracted;
           statusBox.textContent = TEXTS[currentLang].status_pdf_done(extracted.length);
-          runAnalyzeNow(); // авто-анализ сразу после PDF parse
-        } else {
-          // вероятно скан-PDF: текста нет
-          statusBox.textContent = TEXTS[currentLang].status_pdf_scanned;
+          runAnalyzeNow(); // авто-анализ после PDF parse
+          pdfBtn.disabled = false;
+          return;
         }
+
+        // 2) Если текста мало/нет — OCR первой страницы
+        statusBox.textContent = TEXTS[currentLang].status_pdf_empty;
+
+        const ocrText = await ocrFirstPdfPage(pdf);
+        if (ocrText && ocrText.length >= 40) {
+          textInput.value = ocrText;
+          statusBox.textContent = TEXTS[currentLang].status_pdf_ocr_done;
+          runAnalyzeNow(); // авто-анализ после PDF OCR
+        } else {
+          statusBox.textContent = TEXTS[currentLang].status_pdf_all_fail;
+        }
+
       } catch (e) {
-        statusBox.textContent = TEXTS[currentLang].status_pdf_fail;
+        // Если даже открыть PDF не смогли — fallback: попросить фото
+        statusBox.textContent = TEXTS[currentLang].status_pdf_all_fail;
       } finally {
         pdfBtn.disabled = false;
       }
