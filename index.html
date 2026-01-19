@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jobcenter Letter Control</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <div class="badge">Jobcenter Letter Control</div>
+      <h1 id="title">Проверка письма Jobcenter</h1>
+      <p id="subtitle" class="subtitle">Помогаем понять, требуется ли действие по письму.</p>
+    </header>
+
+    <section class="card">
+      <h2 id="langTitle">Выберите язык</h2>
+
+      <div class="langRow">
+        <button class="btn" type="button" onclick="setLang('ru')">🇷🇺 Русский</button>
+        <button class="btn" type="button" onclick="setLang('uk')">🇺🇦 Українська</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <p id="disclaimer" class="disclaimer">
+        Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.
+      </p>
+
+      <div class="actions">
+        <button id="uploadBtn" class="btnPrimary" type="button" disabled>
+          Загрузить письмо (скоро)
+        </button>
+        <p class="hint" id="hint">
+          Сейчас это демо-экран. Следующий шаг — подключить загрузку файла и анализ.
+        </p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="muted" id="footerText">v0.1 • MVP экран</p>
+    </footer>
+  </main>
+
+  <script>
+    const copy = {
+      ru: {
+        title: "Проверка письма Jobcenter",
+        subtitle: "Помогаем понять, требуется ли действие по письму.",
+        langTitle: "Выберите язык",
+        disclaimer: "Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.",
+        uploadBtn: "Загрузить письмо (скоро)",
+        hint: "Сейчас это демо-экран. Следующий шаг — подключить загрузку файла и анализ.",
+        footer: "v0.1 • MVP экран"
+      },
+      uk: {
+        title: "Перевірка листа Jobcenter",
+        subtitle: "Допомагаємо зрозуміти, чи потрібна дія за листом.",
+        langTitle: "Оберіть мову",
+        disclaimer: "Це не юридична консультація. Сервіс показує лише: чи потрібна дія за листом.",
+        uploadBtn: "Завантажити лист (скоро)",
+        hint: "Зараз це демо-екран. Наступний крок — додати завантаження файлу та аналіз.",
+        footer: "v0.1 • MVP екран"
+      }
+    };
+
+    function setLang(lang) {
+      const t = copy[lang] || copy.ru;
+      document.documentElement.lang = lang === "uk" ? "uk" : "ru";
+
+      document.getElementById("title").textContent = t.title;
+      document.getElementById("subtitle").textContent = t.subtitle;
+      document.getElementById("langTitle").textContent = t.langTitle;
+      document.getElementById("disclaimer").textContent = t.disclaimer;
+      document.getElementById("uploadBtn").textContent = t.uploadBtn;
+      document.getElementById("hint").textContent = t.hint;
+      document.getElementById("footerText").textContent = t.footer;
+
+      // Salvestab valiku brauseris
+      try { localStorage.setItem("jlc_lang", lang); } catch(e) {}
+    }
+
+    // Taastab keele valiku
+    (function init() {
+      let saved = "ru";
+      try { saved = localStorage.getItem("jlc_lang") || "ru"; } catch(e) {}
+      setLang(saved);
+    })();
+  </script>
+</body>
+</html>
