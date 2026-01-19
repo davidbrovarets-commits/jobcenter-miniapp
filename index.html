@@ -4,100 +4,126 @@
   <meta charset="UTF-8" />
   <title>Jobcenter Letter Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Kui style.css puudub või annab 404, võib disain olla “katki”.
+       Võid selle hiljem tagasi lülitada. -->
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
+  <div class="app">
+    <h1 id="title">Проверка письма Jobcenter</h1>
+    <p id="subtitle">Помогаем понять, требуется ли действие по письму.</p>
 
-<div class="app">
-  <h1 id="title">Проверка письма Jobcenter</h1>
-  <p id="subtitle">Помогаем понять, требуется ли действие по письму.</p>
+    <div class="card">
+      <h3 id="chooseLang">Выберите язык</h3>
 
-  <div class="card">
-    <h3 id="chooseLang">Выберите язык</h3>
+      <div class="lang-buttons">
+        <button id="btnRu" type="button">RU Русский</button>
+        <button id="btnUa" type="button">UA Українська</button>
+      </div>
 
-    <div class="lang-buttons">
-      <button onclick="setLang('ru')">RU Русский</button>
-      <button onclick="setLang('ua')">UA Українська</button>
+      <p id="disclaimer">
+        Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.
+      </p>
+
+      <!-- ÜKS NUPP + ÜKS INPUT (peidetud) -->
+      <button id="uploadBtn" class="btn" type="button">Загрузить письмо</button>
+      <input id="fileInput" type="file" accept="application/pdf,image/*" style="display:none" />
+
+      <div id="fileInfo" style="margin-top:10px; opacity:0.9;"></div>
+      <pre id="rawText" style="margin-top:10px; white-space:pre-wrap;"></pre>
+
+      <p class="hint" id="hint">
+        Сейчас это демо-экран. Следующий шаг — подключить загрузку файла и анализ.
+      </p>
     </div>
 
-    <p id="disclaimer">
-      Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.
-    </p>
-
-    <button class="primary" disabled>
-      Загрузить письмо (скоро)
-    <input id="fileInput" type="file" accept="application/pdf,image/*" style="display:none" />
-<button id="uploadBtn" class="btn">Загрузить письмо</button>
-
-<div id="fileInfo" style="margin-top:10px; opacity:0.9;"></div>
-<pre id="rawText" style="margin-top:10px; white-space:pre-wrap;"></pre>
-
-
-    <p class="hint">
-      Сейчас это демо-экран. Следующий шаг — подключить загрузку файла и анализ.
-    </p>
+    <small class="version">v0.4 · Telegram init added</small>
   </div>
 
-  <small class="version">v0.2 · Language switch MVP</small>
-</div>
+  <!-- Telegram Mini App SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<script>
-const TEXTS = {
-  ru: {
-    title: "Проверка письма Jobcenter",
-    subtitle: "Помогаем понять, требуется ли действие по письму.",
-    chooseLang: "Выберите язык",
-    disclaimer: "Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.",
-    hint: "Сейчас это демо-экран. Следующий шаг — подключить загрузку файла и анализ."
-  },
-  ua: {
-    title: "Перевірка листа Jobcenter",
-    subtitle: "Допомагаємо зрозуміти, чи потрібна дія за листом.",
-    chooseLang: "Оберіть мову",
-    disclaimer: "Це не юридична консультація. Сервіс показує лише: чи потрібна дія за листом.",
-    hint: "Це демо-екран. Наступний крок — підключити завантаження файлу та аналіз."
-  }
-};
-  const uploadBtn = document.getElementById("uploadBtn");
-  const fileInput = document.getElementById("fileInput");
-  const fileInfo = document.getElementById("fileInfo");
+  <script>
+    // Telegram Mini App init (safe: ei riku brauseris)
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
 
-  uploadBtn.addEventListener("click", () => {
-    fileInput.click();
-  });
+    const TEXTS = {
+      ru: {
+        title: "Проверка письма Jobcenter",
+        subtitle: "Помогаем понять, требуется ли действие по письму.",
+        chooseLang: "Выберите язык",
+        disclaimer:
+          "Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.",
+        hint:
+          "Сейчас это демо-экран. Следующий шаг — подключить распознавание текста (OCR) и анализ.",
+        upload: "Загрузить письмо",
+        fileInfo: (name, kb) => `Файл: ${name} (${kb} KB)`,
+        afterPick:
+          "Файл загружен. Следующий шаг — подключить распознавание текста (OCR)."
+      },
+      ua: {
+        title: "Перевірка листа Jobcenter",
+        subtitle: "Допомагаємо зрозуміти, чи потрібна дія за листом.",
+        chooseLang: "Оберіть мову",
+        disclaimer:
+          "Це не юридична консультація. Сервіс показує лише: чи потрібна дія за листом.",
+        hint:
+          "Це демо-екран. Наступний крок — підключити розпізнавання тексту (OCR) та аналіз.",
+        upload: "Завантажити лист",
+        fileInfo: (name, kb) => `Файл: ${name} (${kb} KB)`,
+        afterPick:
+          "Файл завантажено. Наступний крок — підключити розпізнавання тексту (OCR)."
+      }
+    };
 
-  fileInput.addEventListener("change", () => {
-    if (!fileInput.files.length) return;
+    let currentLang = "ru";
 
-    const file = fileInput.files[0];
-    fileInfo.innerText = `Valitud fail: ${file.name}`;
-  });
-function setLang(lang) {
-  document.documentElement.lang = lang;
-  document.getElementById("title").innerText = TEXTS[lang].title;
-  document.getElementById("subtitle").innerText = TEXTS[lang].subtitle;
-  document.getElementById("chooseLang").innerText = TEXTS[lang].chooseLang;
-  document.getElementById("disclaimer").innerText = TEXTS[lang].disclaimer;
-  document.querySelector(".hint").innerText = TEXTS[lang].hint;
-}
-  const uploadBtn = document.getElementById('uploadBtn');
-  const fileInput = document.getElementById('fileInput');
-  const fileInfo  = document.getElementById('fileInfo');
-  const rawText   = document.getElementById('rawText');
+    function setLang(lang) {
+      currentLang = lang;
+      document.documentElement.lang = lang;
 
-  uploadBtn.addEventListener('click', () => fileInput.click());
+      document.getElementById("title").textContent = TEXTS[lang].title;
+      document.getElementById("subtitle").textContent = TEXTS[lang].subtitle;
+      document.getElementById("chooseLang").textContent = TEXTS[lang].chooseLang;
+      document.getElementById("disclaimer").textContent = TEXTS[lang].disclaimer;
+      document.getElementById("hint").textContent = TEXTS[lang].hint;
+      document.getElementById("uploadBtn").textContent = TEXTS[lang].upload;
+    }
 
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files?.[0];
-    if (!file) return;
+    // DOM
+    const btnRu = document.getElementById("btnRu");
+    const btnUa = document.getElementById("btnUa");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const fileInput = document.getElementById("fileInput");
+    const fileInfo = document.getElementById("fileInfo");
+    const rawText = document.getElementById("rawText");
 
-    fileInfo.textContent = `Файл: ${file.name} (${Math.round(file.size/1024)} KB)`;
-    rawText.textContent = 'Файл загружен. Следующий шаг — подключить распознавание текста (OCR).';
-  });
-</script>
+    // Events
+    btnRu.addEventListener("click", () => setLang("ru"));
+    btnUa.addEventListener("click", () => setLang("ua"));
 
+    uploadBtn.addEventListener("click", () => fileInput.click());
 
+    fileInput.addEventListener("change", () => {
+      // puhasta eelmised teated
+      fileInfo.textContent = "";
+      rawText.textContent = "";
+
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+
+      const kb = Math.round(file.size / 1024);
+      fileInfo.textContent = TEXTS[currentLang].fileInfo(file.name, kb);
+      rawText.textContent = TEXTS[currentLang].afterPick;
+    });
+
+    // init
+    setLang("ru");
+  </script>
 </body>
 </html>
-
-
