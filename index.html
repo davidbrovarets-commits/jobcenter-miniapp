@@ -33,17 +33,22 @@
       <!-- Image preview -->
       <img id="imagePreview" alt="" style="display:none; margin-top:10px; width:100%; border-radius:12px;" />
 
-      <!-- OCR tips -->
+      <!-- Tips -->
       <div id="tipsBox" style="display:none; margin-top:10px; padding:10px 12px; border-radius:12px; background:rgba(0,0,0,0.12);">
         <div id="tipsTitle" style="font-weight:700; margin-bottom:6px;">Советы для хорошего OCR</div>
         <div id="tipsText" style="white-space:pre-wrap; opacity:0.95;"></div>
       </div>
 
-      <!-- OCR controls -->
+      <!-- OCR / PDF parse controls -->
       <button id="ocrBtn" class="btn" type="button" style="margin-top:10px; width:100%; display:none;">
         Распознать текст (OCR)
       </button>
-      <div id="ocrStatus" style="margin-top:8px; opacity:0.9; display:none;"></div>
+
+      <button id="pdfBtn" class="btn" type="button" style="margin-top:10px; width:100%; display:none;">
+        Извлечь текст из PDF
+      </button>
+
+      <div id="statusBox" style="margin-top:8px; opacity:0.9; display:none;"></div>
 
       <!-- Text input -->
       <div style="margin-top:14px;">
@@ -57,6 +62,7 @@
           style="width:100%; padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.12); color:inherit; resize:vertical;"
         ></textarea>
 
+        <!-- Кнопку оставляем (как запасной вариант), но авто-анализ тоже работает -->
         <button id="analyzeBtn" class="btn" type="button" style="margin-top:10px; width:100%;">
           Анализировать
         </button>
@@ -66,26 +72,50 @@
       <div id="resultBox" style="display:none; margin-top:12px; padding:12px; border-radius:12px; background:rgba(0,0,0,0.12);">
         <div id="resultTitle" style="font-weight:700; margin-bottom:6px;"></div>
         <div id="resultDetails" style="white-space:pre-wrap; opacity:0.95;"></div>
+
+        <div id="aboutBox" style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.12);">
+          <div id="aboutTitle" style="font-weight:700; margin-bottom:6px;">Кратко о письме</div>
+          <div id="aboutText" style="white-space:pre-wrap; opacity:0.95;"></div>
+        </div>
+
+        <div id="translateBox" style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.12);">
+          <div id="trTitle" style="font-weight:700; margin-bottom:6px;">Перевод</div>
+          <div id="trText" style="white-space:pre-wrap; opacity:0.95;">
+            (Скоро) Подключим AI-перевод: письмо будет переведено понятным языком независимо от результата анализа.
+          </div>
+          <button id="trBtn" class="btn" type="button" style="margin-top:10px; width:100%;" disabled>
+            Перевести (скоро)
+          </button>
+        </div>
       </div>
 
       <p class="hint" id="hint" style="margin-top:12px;">
-        Шаг: загрузите фото письма → проверьте советы → нажмите OCR → затем Анализировать.
+        Шаг: фото → OCR, PDF → извлечь текст. Затем анализ запускается автоматически.
       </p>
     </div>
 
-    <small class="version">v0.8 · OCR UX checks + tips + clean text</small>
+    <small class="version">v0.9 · PDF text extract (pdf.js) + auto-analyze</small>
   </div>
 
   <!-- Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- Tesseract.js -->
+  <!-- Tesseract.js (OCR) -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <!-- PDF.js (parse text from PDF) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.min.js"></script>
 
   <script>
     // Telegram init (safe)
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     if (tg) { tg.ready(); tg.expand(); }
+
+    // pdf.js worker
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.worker.min.js";
+    }
 
     const TEXTS = {
       ru: {
@@ -94,63 +124,83 @@
         chooseLang: "Выберите язык",
         disclaimer: "Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.",
         upload: "Загрузить письмо",
-        pasteLabel: "Вставьте текст письма (если OCR ещё не подключен)",
+        pasteLabel: "Текст письма (можно вставить вручную, если нужно)",
         pastePlaceholder: "Вставьте сюда текст письма Jobcenter…",
         analyze: "Анализировать",
-        hint: "Шаг: загрузите фото письма → проверьте советы → нажмите OCR → затем Анализировать.",
+        hint: "Шаг: фото → OCR, PDF → извлечь текст. Затем анализ запускается автоматически.",
+
         ocrBtn: "Распознать текст (OCR)",
-        ocrNoImage: "Сначала выберите изображение (фото).",
-        ocrWorking: (p) => `OCR работает… ${p}%`,
-        ocrDone: "OCR готово. Текст очищен и вставлен в поле ниже.",
-        ocrFail: "OCR не получилось. Попробуйте фото чётче/ближе и без бликов.",
+        pdfBtn: "Извлечь текст из PDF",
+
         fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
-        pickedPdf: "✅ PDF выбран. OCR для PDF добавим следующим шагом. Пока можно вставить текст вручную.",
+
         pickedImage: "✅ Изображение выбрано. Можно нажать OCR.",
+        pickedPdf: "✅ PDF выбран. Можно извлечь текст из PDF.",
         unknownType: "⚠️ Неизвестный тип файла. Попробуйте PDF или изображение.",
+
         tipsTitle: "Советы для хорошего OCR",
         tipsText:
           "• Держите камеру ровно сверху (без наклона)\n" +
           "• Поднесите ближе: текст должен занимать 70–90% кадра\n" +
-          "• Уберите блики и тени (не фотографируйте напротив лампы)\n" +
+          "• Уберите блики и тени\n" +
           "• Лучше яркий свет, чем тёмный кадр\n" +
-          "• Если фото размыто — сделайте ещё раз",
-        qualityGood: "✅ Качество фото выглядит нормально для OCR.",
-        qualityBad: (msg) => `⚠️ Фото может распознаться плохо: ${msg}`,
+          "• Если размыто — сделайте фото ещё раз",
+
+        status_ocr_working: (p) => `OCR работает… ${p}%`,
+        status_ocr_done: "OCR готово. Текст очищен и вставлен в поле ниже.",
+        status_ocr_fail: "OCR не получилось. Попробуйте фото чётче/ближе и без бликов.",
+
+        status_pdf_loading: "Читаю PDF…",
+        status_pdf_page: (p, total) => `Извлекаю текст из PDF: страница ${p}/${total}…`,
+        status_pdf_done: (chars) => `✅ Текст из PDF извлечён (${chars} символов).`,
+        status_pdf_scanned: "⚠️ В PDF почти нет текста. Похоже, это скан — для него нужен OCR по страницам (добавим следующим шагом).",
+        status_pdf_fail: "Не удалось прочитать PDF. Попробуйте другой файл.",
+
         res_needAction: "✅ Требуется действие",
         res_noAction: "❌ Действие не требуется (скорее всего)",
         res_unclear: "⚠️ Неясно — нужна проверка",
-        res_empty: "Введите или вставьте текст письма — хотя бы 2–3 строки.",
+        res_empty: "Введите/вставьте текст письма — хотя бы 2–3 строки.",
+
         details_needAction: (deadline) =>
           `Похоже, Jobcenter ожидает от вас действие.\n` +
           (deadline ? `Обнаружен возможный срок: ${deadline}\n` : "") +
-          `Следующий шаг: проверьте, что именно требуют (документы/ответ/явка) и подготовьте действие.`,
+          `Дальше: проверьте, что именно требуют (документы/ответ/явка) и подготовьте действие.`,
         details_noAction:
           `Похоже, это уведомление/информация.\n` +
           `Если в тексте нет просьбы прислать документы, прийти в термин или ответить — часто действие не требуется.\n` +
           `Если сомневаетесь — лучше перепроверить.`,
         details_unclear:
           `Сигналы неочевидны.\n` +
-          `Для точности нужны 1–2 абзаца со сроком/термином (Bitte/Frist/Termin).`
+          `Для точности нужны 1–2 абзаца со сроком/термином (Bitte/Frist/Termin).`,
+
+        about_title: "Кратко о письме",
+        about_unknown: "Пока не удаётся надёжно определить тип письма. Добавьте 1–2 абзаца с основной частью.",
+        about_payment: "Похоже на письмо о выплате/суммах (Bürgergeld, Zahlung, Betrag). Обычно это информирование.",
+        about_decision: "Похоже на решение/уведомление (Bescheid/Änderungsbescheid). Часто действие не требуется, но важно проверить: есть ли просьба/срок.",
+        about_appointment: "Похоже на приглашение/термин (Termin/Einladung). Обычно требуется действие: прийти/ответить.",
+        about_documents: "Похоже на запрос документов/содействие (Unterlagen/Nachweise/Mitwirkung). Обычно требуется действие."
       },
+
       ua: {
         title: "Перевірка листа Jobcenter",
         subtitle: "Допомагаємо зрозуміти, чи потрібна дія за листом.",
         chooseLang: "Оберіть мову",
         disclaimer: "Це не юридична консультація. Сервіс показує лише: чи потрібна дія за листом.",
         upload: "Завантажити лист",
-        pasteLabel: "Вставте текст листа (якщо OCR ще не підключено)",
+        pasteLabel: "Текст листа (можна вставити вручну, якщо потрібно)",
         pastePlaceholder: "Вставте сюди текст листа Jobcenter…",
         analyze: "Аналізувати",
-        hint: "Крок: завантажте фото → перегляньте поради → натисніть OCR → потім Аналізувати.",
+        hint: "Крок: фото → OCR, PDF → витяг тексту. Далі аналіз запускається автоматично.",
+
         ocrBtn: "Розпізнати текст (OCR)",
-        ocrNoImage: "Спочатку виберіть зображення (фото).",
-        ocrWorking: (p) => `OCR працює… ${p}%`,
-        ocrDone: "OCR готово. Текст очищено і вставлено нижче.",
-        ocrFail: "OCR не вдалося. Спробуйте чіткіше фото без відблисків.",
+        pdfBtn: "Витягти текст з PDF",
+
         fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
-        pickedPdf: "✅ PDF обрано. OCR для PDF додамо наступним кроком. Поки можна вставити текст вручну.",
+
         pickedImage: "✅ Зображення обрано. Можна натиснути OCR.",
+        pickedPdf: "✅ PDF обрано. Можна витягти текст з PDF.",
         unknownType: "⚠️ Невідомий тип файлу. Спробуйте PDF або зображення.",
+
         tipsTitle: "Поради для гарного OCR",
         tipsText:
           "• Тримайте камеру рівно зверху (без нахилу)\n" +
@@ -158,12 +208,22 @@
           "• Приберіть відблиски і тіні\n" +
           "• Краще яскраве світло, ніж темний кадр\n" +
           "• Якщо розмито — зробіть фото ще раз",
-        qualityGood: "✅ Якість фото виглядає нормально для OCR.",
-        qualityBad: (msg) => `⚠️ Фото може розпізнатися погано: ${msg}`,
+
+        status_ocr_working: (p) => `OCR працює… ${p}%`,
+        status_ocr_done: "OCR готово. Текст очищено і вставлено нижче.",
+        status_ocr_fail: "OCR не вдалося. Спробуйте чіткіше фото без відблисків.",
+
+        status_pdf_loading: "Читаю PDF…",
+        status_pdf_page: (p, total) => `Витяг тексту з PDF: сторінка ${p}/${total}…`,
+        status_pdf_done: (chars) => `✅ Текст з PDF витягнуто (${chars} символів).`,
+        status_pdf_scanned: "⚠️ У PDF майже немає тексту. Схоже, це скан — для нього потрібен OCR по сторінках (додамо наступним кроком).",
+        status_pdf_fail: "Не вдалося прочитати PDF. Спробуйте інший файл.",
+
         res_needAction: "✅ Потрібна дія",
         res_noAction: "❌ Дія не потрібна (ймовірно)",
         res_unclear: "⚠️ Незрозуміло — потрібна перевірка",
         res_empty: "Вставте текст — хоча б 2–3 рядки.",
+
         details_needAction: (deadline) =>
           `Схоже, Jobcenter очікує від вас дію.\n` +
           (deadline ? `Можливий строк: ${deadline}\n` : "") +
@@ -174,32 +234,90 @@
           `Якщо сумніваєтесь — переперевірте.`,
         details_unclear:
           `Сигнали неочевидні.\n` +
-          `Для точності потрібні 1–2 абзаци зі строком/терміном (Bitte/Frist/Termin).`
+          `Для точності потрібні 1–2 абзаци зі строком/терміном (Bitte/Frist/Termin).`,
+
+        about_title: "Коротко про лист",
+        about_unknown: "Поки не вдається надійно визначити тип листа. Додайте 1–2 абзаци з основною частиною.",
+        about_payment: "Схоже на лист про виплату/суми (Bürgergeld, Zahlung, Betrag). Зазвичай це інформування.",
+        about_decision: "Схоже на рішення/повідомлення (Bescheid/Änderungsbescheid). Часто дія не потрібна, але перевірте: чи є прохання/строк.",
+        about_appointment: "Схоже на запрошення/термін (Termin/Einladung). Зазвичай потрібна дія: прийти/відповісти.",
+        about_documents: "Схоже на запит документів/співпрацю (Unterlagen/Nachweise/Mitwirkung). Зазвичай потрібна дія."
       }
     };
 
     let currentLang = "ru";
+
+    // DOM
+    const title = document.getElementById("title");
+    const subtitle = document.getElementById("subtitle");
+    const chooseLang = document.getElementById("chooseLang");
+    const disclaimer = document.getElementById("disclaimer");
+
+    const btnRu = document.getElementById("btnRu");
+    const btnUa = document.getElementById("btnUa");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const fileInput = document.getElementById("fileInput");
+
+    const fileInfo = document.getElementById("fileInfo");
+    const imagePreview = document.getElementById("imagePreview");
+
+    const tipsBox = document.getElementById("tipsBox");
+    const tipsTitle = document.getElementById("tipsTitle");
+    const tipsText = document.getElementById("tipsText");
+
+    const ocrBtn = document.getElementById("ocrBtn");
+    const pdfBtn = document.getElementById("pdfBtn");
+    const statusBox = document.getElementById("statusBox");
+
+    const pasteLabel = document.getElementById("pasteLabel");
+    const textInput = document.getElementById("textInput");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+
+    const resultBox = document.getElementById("resultBox");
+    const resultTitle = document.getElementById("resultTitle");
+    const resultDetails = document.getElementById("resultDetails");
+
+    const aboutTitle = document.getElementById("aboutTitle");
+    const aboutText = document.getElementById("aboutText");
+
+    const hint = document.getElementById("hint");
+
+    // state
+    let currentFile = null;
+    let currentKind = null; // 'image'|'pdf'|null
+    let lastDownscaledCanvas = null;
+    let autoTimer = null;
+
     function setLang(lang) {
       currentLang = lang;
       document.documentElement.lang = lang;
+
       title.textContent = TEXTS[lang].title;
       subtitle.textContent = TEXTS[lang].subtitle;
       chooseLang.textContent = TEXTS[lang].chooseLang;
       disclaimer.textContent = TEXTS[lang].disclaimer;
       uploadBtn.textContent = TEXTS[lang].upload;
+
       pasteLabel.textContent = TEXTS[lang].pasteLabel;
       textInput.placeholder = TEXTS[lang].pastePlaceholder;
+
       analyzeBtn.textContent = TEXTS[lang].analyze;
-      hint.textContent = TEXTS[lang].hint;
       ocrBtn.textContent = TEXTS[lang].ocrBtn;
+      pdfBtn.textContent = TEXTS[lang].pdfBtn;
+
       tipsTitle.textContent = TEXTS[lang].tipsTitle;
       tipsText.textContent = TEXTS[lang].tipsText;
+
+      aboutTitle.textContent = TEXTS[lang].about_title;
+
+      hint.textContent = TEXTS[lang].hint;
     }
 
-    // --- Analyzer ---
+    // --- Analyzer (rules) ---
     function normalize(s) {
       return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
     }
+
     function findDeadline(text) {
       const m1 = text.match(/\b(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
       if (m1) return m1[1];
@@ -207,9 +325,10 @@
       if (m2) return m2[2];
       return "";
     }
+
     function analyzeText(raw) {
       const t = normalize(raw);
-      if (t.length < 30) return { kind: "empty" };
+      if (t.length < 30) return { kind: "empty", deadline: "" };
 
       const actionSignals = [
         "bitte","wir bitten","sie werden gebeten","sie sind verpflichtet",
@@ -219,10 +338,11 @@
         "anhörung","mitwirkung","aufforderung","fehlende unterlagen",
         "unterlagen","kontoauszüge","mietvertrag"
       ];
+
       const infoSignals = [
-        "bewilligung","bescheid","mitteilung","information",
+        "bewilligung","bescheid","änderungsbescheid","mitteilung","information",
         "zahlung","auszahlung","überweisung","betrag",
-        "wir informieren","zur kenntnis","hinweis","änderungsbescheid"
+        "wir informieren","zur kenntnis","hinweis","bewilligungsbescheid"
       ];
 
       let actionScore = 0, infoScore = 0;
@@ -234,31 +354,64 @@
       if (actionScore >= 2 || (actionScore >= 1 && (t.includes("frist") || t.includes("termin") || deadline))) {
         return { kind: "needAction", deadline };
       }
-      if (infoScore >= 2 && actionScore === 0) return { kind: "noAction" };
-      return { kind: "unclear" };
-    }
-    function showResult(kind, deadline) {
-      resultBox.style.display = "block";
-      if (kind === "empty") {
-        resultTitle.textContent = TEXTS[currentLang].res_unclear;
-        resultDetails.textContent = TEXTS[currentLang].res_empty;
-        return;
-      }
-      if (kind === "needAction") {
-        resultTitle.textContent = TEXTS[currentLang].res_needAction;
-        resultDetails.textContent = TEXTS[currentLang].details_needAction(deadline || "");
-        return;
-      }
-      if (kind === "noAction") {
-        resultTitle.textContent = TEXTS[currentLang].res_noAction;
-        resultDetails.textContent = TEXTS[currentLang].details_noAction;
-        return;
-      }
-      resultTitle.textContent = TEXTS[currentLang].res_unclear;
-      resultDetails.textContent = TEXTS[currentLang].details_unclear;
+      if (infoScore >= 2 && actionScore === 0) return { kind: "noAction", deadline: "" };
+      return { kind: "unclear", deadline: "" };
     }
 
-    // --- OCR helpers: downscale + simple quality check ---
+    function explainLetter(raw) {
+      const t = normalize(raw);
+      if (t.length < 30) return TEXTS[currentLang].about_unknown;
+
+      const hasPay = /bürgergeld|zahlung|auszahlung|betrag|überweisung|monatlich/.test(t);
+      const hasBescheid = /bescheid|änderungsbescheid|bewilligung|bewilligungsbescheid/.test(t);
+      const hasTermin = /termin|einladung|melden sie sich|vorsprechen/.test(t);
+      const hasDocs = /unterlagen|nachweis|nachweisen|einreichen|vorlegen|mitwirkung|aufforderung|fehlende/.test(t);
+
+      if (hasTermin) return TEXTS[currentLang].about_appointment;
+      if (hasDocs) return TEXTS[currentLang].about_documents;
+      if (hasPay) return TEXTS[currentLang].about_payment;
+      if (hasBescheid) return TEXTS[currentLang].about_decision;
+
+      return TEXTS[currentLang].about_unknown;
+    }
+
+    function showResult(res) {
+      resultBox.style.display = "block";
+
+      if (res.kind === "empty") {
+        resultTitle.textContent = TEXTS[currentLang].res_unclear;
+        resultDetails.textContent = TEXTS[currentLang].res_empty;
+        aboutText.textContent = TEXTS[currentLang].about_unknown;
+        return;
+      }
+
+      if (res.kind === "needAction") {
+        resultTitle.textContent = TEXTS[currentLang].res_needAction;
+        resultDetails.textContent = TEXTS[currentLang].details_needAction(res.deadline || "");
+      } else if (res.kind === "noAction") {
+        resultTitle.textContent = TEXTS[currentLang].res_noAction;
+        resultDetails.textContent = TEXTS[currentLang].details_noAction;
+      } else {
+        resultTitle.textContent = TEXTS[currentLang].res_unclear;
+        resultDetails.textContent = TEXTS[currentLang].details_unclear;
+      }
+
+      aboutText.textContent = explainLetter(textInput.value || "");
+    }
+
+    function runAnalyzeNow() {
+      const res = analyzeText(textInput.value || "");
+      showResult(res);
+    }
+
+    function scheduleAutoAnalyze() {
+      if (autoTimer) clearTimeout(autoTimer);
+      autoTimer = setTimeout(() => {
+        runAnalyzeNow();
+      }, 900); // умная задержка
+    }
+
+    // --- OCR helpers ---
     async function downscaleImageToDataUrl(file, maxSide = 1600) {
       const img = new Image();
       const url = URL.createObjectURL(file);
@@ -284,94 +437,40 @@
       return { dataUrl: canvas.toDataURL("image/jpeg", 0.9), canvas };
     }
 
-    function qualityCheck(canvas) {
-      // Very simple heuristic:
-      // - too dark -> low avg brightness
-      // - too low contrast -> low std
-      // - too small -> dimensions
-      const w = canvas.width, h = canvas.height;
-      if (w < 700 || h < 700) return { ok: false, msg: "слишком маленькое изображение. Сделайте фото ближе." };
-
-      const ctx = canvas.getContext("2d");
-      const img = ctx.getImageData(0, 0, w, h);
-      const d = img.data;
-
-      // sample pixels (every ~20th pixel) for speed
-      const step = 80; // larger = faster
-      let n = 0;
-      let sum = 0;
-      let sumSq = 0;
-
-      for (let i = 0; i < d.length; i += 4 * step) {
-        const r = d[i], g = d[i+1], b = d[i+2];
-        // luminance
-        const y = 0.2126*r + 0.7152*g + 0.0722*b;
-        sum += y;
-        sumSq += y*y;
-        n++;
-      }
-
-      const mean = sum / n;
-      const varr = (sumSq / n) - (mean * mean);
-      const std = Math.sqrt(Math.max(0, varr));
-
-      if (mean < 85) return { ok: false, msg: "кадр слишком тёмный. Добавьте света." };
-      if (std < 28) return { ok: false, msg: "низкий контраст/размытие. Уберите блики и держите камеру ровно." };
-
-      return { ok: true, msg: "" };
-    }
-
     function cleanOcrText(t) {
       let s = (t || "");
-      // remove weird repeating chars and normalize spacing
-      s = s.replace(/[^\S\r\n]+/g, " ");      // collapse spaces
-      s = s.replace(/\n{3,}/g, "\n\n");       // collapse newlines
-      s = s.replace(/[|}{]{2,}/g, " ");       // noisy symbols
-      s = s.replace(/[^\p{L}\p{N}\s.,:;!?()+\-\/€$@%]/gu, ""); // keep letters/numbers/punct
+      s = s.replace(/[^\S\r\n]+/g, " ");
+      s = s.replace(/\n{3,}/g, "\n\n");
+      s = s.replace(/[|}{]{2,}/g, " ");
+      s = s.replace(/[^\p{L}\p{N}\s.,:;!?()+\-\/€$@%]/gu, "");
       s = s.replace(/\s{2,}/g, " ").trim();
       return s;
     }
 
-    // DOM
-    const title = document.getElementById("title");
-    const subtitle = document.getElementById("subtitle");
-    const chooseLang = document.getElementById("chooseLang");
-    const disclaimer = document.getElementById("disclaimer");
+    // --- PDF text extract via pdf.js ---
+    async function extractTextFromPdf(file) {
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
 
-    const btnRu = document.getElementById("btnRu");
-    const btnUa = document.getElementById("btnUa");
-    const uploadBtn = document.getElementById("uploadBtn");
-    const fileInput = document.getElementById("fileInput");
-    const fileInfo = document.getElementById("fileInfo");
-    const imagePreview = document.getElementById("imagePreview");
+      const total = pdf.numPages;
+      let textAll = "";
 
-    const tipsBox = document.getElementById("tipsBox");
-    const tipsTitle = document.getElementById("tipsTitle");
-    const tipsText = document.getElementById("tipsText");
+      // для MVP ограничим максимум 5 страницами (быстро и стабильно)
+      const maxPages = Math.min(total, 5);
 
-    const ocrBtn = document.getElementById("ocrBtn");
-    const ocrStatus = document.getElementById("ocrStatus");
+      for (let i = 1; i <= maxPages; i++) {
+        statusBox.textContent = TEXTS[currentLang].status_pdf_page(i, maxPages);
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const strings = content.items.map(it => (it && it.str) ? it.str : "").filter(Boolean);
+        textAll += strings.join(" ") + "\n\n";
+      }
 
-    const pasteLabel = document.getElementById("pasteLabel");
-    const textInput = document.getElementById("textInput");
-    const analyzeBtn = document.getElementById("analyzeBtn");
+      return textAll.trim();
+    }
 
-    const resultBox = document.getElementById("resultBox");
-    const resultTitle = document.getElementById("resultTitle");
-    const resultDetails = document.getElementById("resultDetails");
-    const hint = document.getElementById("hint");
-
-    let currentFile = null;
-    let currentFileKind = null; // 'image' | 'pdf' | null
-    let lastDownscaledCanvas = null;
-
-    // Events
-    btnRu.addEventListener("click", () => setLang("ru"));
-    btnUa.addEventListener("click", () => setLang("ua"));
-    uploadBtn.addEventListener("click", () => fileInput.click());
-
-    fileInput.addEventListener("change", async () => {
-      // reset
+    // --- UI reset
+    function resetUi() {
       fileInfo.textContent = "";
       imagePreview.style.display = "none";
       imagePreview.src = "";
@@ -380,10 +479,28 @@
       tipsBox.style.display = "none";
 
       ocrBtn.style.display = "none";
-      ocrStatus.style.display = "none";
-      ocrStatus.textContent = "";
+      pdfBtn.style.display = "none";
+
+      statusBox.style.display = "none";
+      statusBox.textContent = "";
+
       resultBox.style.display = "none";
+
       lastDownscaledCanvas = null;
+    }
+
+    // Events
+    btnRu.addEventListener("click", () => setLang("ru"));
+    btnUa.addEventListener("click", () => setLang("ua"));
+    uploadBtn.addEventListener("click", () => fileInput.click());
+
+    // Auto analyze on typing/pasting
+    textInput.addEventListener("input", () => scheduleAutoAnalyze());
+
+    analyzeBtn.addEventListener("click", () => runAnalyzeNow());
+
+    fileInput.addEventListener("change", async () => {
+      resetUi();
 
       const file = fileInput.files && fileInput.files[0];
       if (!file) return;
@@ -392,6 +509,7 @@
 
       const kb = Math.round(file.size / 1024);
       const mime = (file.type || "").toLowerCase();
+
       const isPdf = mime === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
       const isImage = mime.startsWith("image/");
       const typeLabel = mime ? mime : "unknown";
@@ -399,63 +517,49 @@
       fileInfo.textContent = TEXTS[currentLang].fileInfo(file.name, kb, typeLabel);
 
       if (isPdf) {
-        currentFileKind = "pdf";
-        tipsBox.style.display = "none";
-        ocrBtn.style.display = "none";
-        ocrStatus.style.display = "block";
-        ocrStatus.textContent = TEXTS[currentLang].pickedPdf;
+        currentKind = "pdf";
+        statusBox.style.display = "block";
+        statusBox.textContent = TEXTS[currentLang].pickedPdf;
+        pdfBtn.style.display = "block";
         return;
       }
 
       if (isImage) {
-        currentFileKind = "image";
+        currentKind = "image";
 
         const url = URL.createObjectURL(file);
         imagePreview.src = url;
         imagePreview.alt = file.name;
         imagePreview.style.display = "block";
 
-        // show tips + quality check (based on downscaled canvas)
         tipsBox.style.display = "block";
 
+        statusBox.style.display = "block";
+        statusBox.textContent = TEXTS[currentLang].pickedImage;
+
+        ocrBtn.style.display = "block";
+
+        // prepare downscaled for faster OCR
         try {
-          const { dataUrl, canvas } = await downscaleImageToDataUrl(file, 1600);
-          lastDownscaledCanvas = canvas;
-
-          const qc = qualityCheck(canvas);
-          ocrStatus.style.display = "block";
-          ocrStatus.textContent = qc.ok ? TEXTS[currentLang].qualityGood : TEXTS[currentLang].qualityBad(qc.msg);
-
-          // enable OCR anyway, but user is warned
-          ocrBtn.style.display = "block";
-        } catch (e) {
-          // fallback: still allow OCR
-          ocrBtn.style.display = "block";
-          ocrStatus.style.display = "block";
-          ocrStatus.textContent = TEXTS[currentLang].pickedImage;
-        }
-
+          const r = await downscaleImageToDataUrl(file, 1600);
+          lastDownscaledCanvas = r.canvas;
+        } catch (e) {}
         return;
       }
 
-      currentFileKind = null;
-      ocrStatus.style.display = "block";
-      ocrStatus.textContent = TEXTS[currentLang].unknownType;
+      currentKind = null;
+      statusBox.style.display = "block";
+      statusBox.textContent = TEXTS[currentLang].unknownType;
     });
 
     ocrBtn.addEventListener("click", async () => {
-      if (!currentFile || currentFileKind !== "image") {
-        ocrStatus.style.display = "block";
-        ocrStatus.textContent = TEXTS[currentLang].ocrNoImage;
-        return;
-      }
+      if (!currentFile || currentKind !== "image") return;
 
       try {
         ocrBtn.disabled = true;
-        ocrStatus.style.display = "block";
-        ocrStatus.textContent = TEXTS[currentLang].ocrWorking(0);
+        statusBox.style.display = "block";
+        statusBox.textContent = TEXTS[currentLang].status_ocr_working(0);
 
-        // use already downscaled canvas if exists; else downscale now
         let dataUrl;
         if (lastDownscaledCanvas) {
           dataUrl = lastDownscaledCanvas.toDataURL("image/jpeg", 0.9);
@@ -470,7 +574,7 @@
           logger: (m) => {
             if (m && m.status === "recognizing text" && typeof m.progress === "number") {
               const pct = Math.round(m.progress * 100);
-              ocrStatus.textContent = TEXTS[currentLang].ocrWorking(pct);
+              statusBox.textContent = TEXTS[currentLang].status_ocr_working(pct);
             }
           }
         });
@@ -480,21 +584,41 @@
 
         if (cleaned.length > 0) {
           textInput.value = cleaned;
-          ocrStatus.textContent = TEXTS[currentLang].ocrDone;
+          statusBox.textContent = TEXTS[currentLang].status_ocr_done;
+          runAnalyzeNow(); // авто-анализ сразу после OCR
         } else {
-          ocrStatus.textContent = TEXTS[currentLang].ocrFail;
+          statusBox.textContent = TEXTS[currentLang].status_ocr_fail;
         }
       } catch (e) {
-        ocrStatus.textContent = TEXTS[currentLang].ocrFail;
+        statusBox.textContent = TEXTS[currentLang].status_ocr_fail;
       } finally {
         ocrBtn.disabled = false;
       }
     });
 
-    analyzeBtn.addEventListener("click", () => {
-      const raw = textInput.value || "";
-      const res = analyzeText(raw);
-      showResult(res.kind, res.deadline || "");
+    pdfBtn.addEventListener("click", async () => {
+      if (!currentFile || currentKind !== "pdf") return;
+
+      try {
+        pdfBtn.disabled = true;
+        statusBox.style.display = "block";
+        statusBox.textContent = TEXTS[currentLang].status_pdf_loading;
+
+        const extracted = await extractTextFromPdf(currentFile);
+
+        if (extracted && extracted.length >= 60) {
+          textInput.value = extracted;
+          statusBox.textContent = TEXTS[currentLang].status_pdf_done(extracted.length);
+          runAnalyzeNow(); // авто-анализ сразу после PDF parse
+        } else {
+          // вероятно скан-PDF: текста нет
+          statusBox.textContent = TEXTS[currentLang].status_pdf_scanned;
+        }
+      } catch (e) {
+        statusBox.textContent = TEXTS[currentLang].status_pdf_fail;
+      } finally {
+        pdfBtn.disabled = false;
+      }
     });
 
     // init
