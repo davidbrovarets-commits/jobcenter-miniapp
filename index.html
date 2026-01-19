@@ -33,6 +33,12 @@
       <!-- Image preview -->
       <img id="imagePreview" alt="" style="display:none; margin-top:10px; width:100%; border-radius:12px;" />
 
+      <!-- OCR tips -->
+      <div id="tipsBox" style="display:none; margin-top:10px; padding:10px 12px; border-radius:12px; background:rgba(0,0,0,0.12);">
+        <div id="tipsTitle" style="font-weight:700; margin-bottom:6px;">Советы для хорошего OCR</div>
+        <div id="tipsText" style="white-space:pre-wrap; opacity:0.95;"></div>
+      </div>
+
       <!-- OCR controls -->
       <button id="ocrBtn" class="btn" type="button" style="margin-top:10px; width:100%; display:none;">
         Распознать текст (OCR)
@@ -63,17 +69,17 @@
       </div>
 
       <p class="hint" id="hint" style="margin-top:12px;">
-        Шаг: загрузите фото письма → нажмите OCR → затем Анализировать.
+        Шаг: загрузите фото письма → проверьте советы → нажмите OCR → затем Анализировать.
       </p>
     </div>
 
-    <small class="version">v0.7 · Image OCR (Tesseract) + analyze</small>
+    <small class="version">v0.8 · OCR UX checks + tips + clean text</small>
   </div>
 
   <!-- Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- Tesseract.js (OCR in browser) -->
+  <!-- Tesseract.js -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
   <script>
@@ -91,16 +97,25 @@
         pasteLabel: "Вставьте текст письма (если OCR ещё не подключен)",
         pastePlaceholder: "Вставьте сюда текст письма Jobcenter…",
         analyze: "Анализировать",
-        hint: "Шаг: загрузите фото письма → нажмите OCR → затем Анализировать.",
+        hint: "Шаг: загрузите фото письма → проверьте советы → нажмите OCR → затем Анализировать.",
         ocrBtn: "Распознать текст (OCR)",
         ocrNoImage: "Сначала выберите изображение (фото).",
         ocrWorking: (p) => `OCR работает… ${p}%`,
-        ocrDone: "OCR готово. Текст вставлен в поле ниже.",
+        ocrDone: "OCR готово. Текст очищен и вставлен в поле ниже.",
         ocrFail: "OCR не получилось. Попробуйте фото чётче/ближе и без бликов.",
         fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
         pickedPdf: "✅ PDF выбран. OCR для PDF добавим следующим шагом. Пока можно вставить текст вручную.",
         pickedImage: "✅ Изображение выбрано. Можно нажать OCR.",
         unknownType: "⚠️ Неизвестный тип файла. Попробуйте PDF или изображение.",
+        tipsTitle: "Советы для хорошего OCR",
+        tipsText:
+          "• Держите камеру ровно сверху (без наклона)\n" +
+          "• Поднесите ближе: текст должен занимать 70–90% кадра\n" +
+          "• Уберите блики и тени (не фотографируйте напротив лампы)\n" +
+          "• Лучше яркий свет, чем тёмный кадр\n" +
+          "• Если фото размыто — сделайте ещё раз",
+        qualityGood: "✅ Качество фото выглядит нормально для OCR.",
+        qualityBad: (msg) => `⚠️ Фото может распознаться плохо: ${msg}`,
         res_needAction: "✅ Требуется действие",
         res_noAction: "❌ Действие не требуется (скорее всего)",
         res_unclear: "⚠️ Неясно — нужна проверка",
@@ -115,7 +130,7 @@
           `Если сомневаетесь — лучше перепроверить.`,
         details_unclear:
           `Сигналы неочевидны.\n` +
-          `Для точности нужны 1–2 абзаца, где есть просьба/срок/термин (Bitte/Frist/Termin).`
+          `Для точности нужны 1–2 абзаца со сроком/термином (Bitte/Frist/Termin).`
       },
       ua: {
         title: "Перевірка листа Jobcenter",
@@ -126,16 +141,25 @@
         pasteLabel: "Вставте текст листа (якщо OCR ще не підключено)",
         pastePlaceholder: "Вставте сюди текст листа Jobcenter…",
         analyze: "Аналізувати",
-        hint: "Крок: завантажте фото → натисніть OCR → потім Аналізувати.",
+        hint: "Крок: завантажте фото → перегляньте поради → натисніть OCR → потім Аналізувати.",
         ocrBtn: "Розпізнати текст (OCR)",
         ocrNoImage: "Спочатку виберіть зображення (фото).",
         ocrWorking: (p) => `OCR працює… ${p}%`,
-        ocrDone: "OCR готово. Текст вставлено нижче.",
+        ocrDone: "OCR готово. Текст очищено і вставлено нижче.",
         ocrFail: "OCR не вдалося. Спробуйте чіткіше фото без відблисків.",
         fileInfo: (name, kb, type) => `Файл: ${name} (${kb} KB) · Тип: ${type}`,
         pickedPdf: "✅ PDF обрано. OCR для PDF додамо наступним кроком. Поки можна вставити текст вручну.",
         pickedImage: "✅ Зображення обрано. Можна натиснути OCR.",
         unknownType: "⚠️ Невідомий тип файлу. Спробуйте PDF або зображення.",
+        tipsTitle: "Поради для гарного OCR",
+        tipsText:
+          "• Тримайте камеру рівно зверху (без нахилу)\n" +
+          "• Підійдіть ближче: текст має займати 70–90% кадру\n" +
+          "• Приберіть відблиски і тіні\n" +
+          "• Краще яскраве світло, ніж темний кадр\n" +
+          "• Якщо розмито — зробіть фото ще раз",
+        qualityGood: "✅ Якість фото виглядає нормально для OCR.",
+        qualityBad: (msg) => `⚠️ Фото може розпізнатися погано: ${msg}`,
         res_needAction: "✅ Потрібна дія",
         res_noAction: "❌ Дія не потрібна (ймовірно)",
         res_unclear: "⚠️ Незрозуміло — потрібна перевірка",
@@ -168,9 +192,11 @@
       analyzeBtn.textContent = TEXTS[lang].analyze;
       hint.textContent = TEXTS[lang].hint;
       ocrBtn.textContent = TEXTS[lang].ocrBtn;
+      tipsTitle.textContent = TEXTS[lang].tipsTitle;
+      tipsText.textContent = TEXTS[lang].tipsText;
     }
 
-    // --- Analyzer (same as before) ---
+    // --- Analyzer ---
     function normalize(s) {
       return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
     }
@@ -232,7 +258,7 @@
       resultDetails.textContent = TEXTS[currentLang].details_unclear;
     }
 
-    // --- Helpers: downscale image for faster OCR ---
+    // --- OCR helpers: downscale + simple quality check ---
     async function downscaleImageToDataUrl(file, maxSide = 1600) {
       const img = new Image();
       const url = URL.createObjectURL(file);
@@ -255,7 +281,55 @@
       ctx.drawImage(img, 0, 0, nw, nh);
 
       URL.revokeObjectURL(url);
-      return canvas.toDataURL("image/jpeg", 0.9);
+      return { dataUrl: canvas.toDataURL("image/jpeg", 0.9), canvas };
+    }
+
+    function qualityCheck(canvas) {
+      // Very simple heuristic:
+      // - too dark -> low avg brightness
+      // - too low contrast -> low std
+      // - too small -> dimensions
+      const w = canvas.width, h = canvas.height;
+      if (w < 700 || h < 700) return { ok: false, msg: "слишком маленькое изображение. Сделайте фото ближе." };
+
+      const ctx = canvas.getContext("2d");
+      const img = ctx.getImageData(0, 0, w, h);
+      const d = img.data;
+
+      // sample pixels (every ~20th pixel) for speed
+      const step = 80; // larger = faster
+      let n = 0;
+      let sum = 0;
+      let sumSq = 0;
+
+      for (let i = 0; i < d.length; i += 4 * step) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        // luminance
+        const y = 0.2126*r + 0.7152*g + 0.0722*b;
+        sum += y;
+        sumSq += y*y;
+        n++;
+      }
+
+      const mean = sum / n;
+      const varr = (sumSq / n) - (mean * mean);
+      const std = Math.sqrt(Math.max(0, varr));
+
+      if (mean < 85) return { ok: false, msg: "кадр слишком тёмный. Добавьте света." };
+      if (std < 28) return { ok: false, msg: "низкий контраст/размытие. Уберите блики и держите камеру ровно." };
+
+      return { ok: true, msg: "" };
+    }
+
+    function cleanOcrText(t) {
+      let s = (t || "");
+      // remove weird repeating chars and normalize spacing
+      s = s.replace(/[^\S\r\n]+/g, " ");      // collapse spaces
+      s = s.replace(/\n{3,}/g, "\n\n");       // collapse newlines
+      s = s.replace(/[|}{]{2,}/g, " ");       // noisy symbols
+      s = s.replace(/[^\p{L}\p{N}\s.,:;!?()+\-\/€$@%]/gu, ""); // keep letters/numbers/punct
+      s = s.replace(/\s{2,}/g, " ").trim();
+      return s;
     }
 
     // DOM
@@ -271,6 +345,10 @@
     const fileInfo = document.getElementById("fileInfo");
     const imagePreview = document.getElementById("imagePreview");
 
+    const tipsBox = document.getElementById("tipsBox");
+    const tipsTitle = document.getElementById("tipsTitle");
+    const tipsText = document.getElementById("tipsText");
+
     const ocrBtn = document.getElementById("ocrBtn");
     const ocrStatus = document.getElementById("ocrStatus");
 
@@ -285,23 +363,27 @@
 
     let currentFile = null;
     let currentFileKind = null; // 'image' | 'pdf' | null
+    let lastDownscaledCanvas = null;
 
     // Events
     btnRu.addEventListener("click", () => setLang("ru"));
     btnUa.addEventListener("click", () => setLang("ua"));
-
     uploadBtn.addEventListener("click", () => fileInput.click());
 
-    fileInput.addEventListener("change", () => {
+    fileInput.addEventListener("change", async () => {
       // reset
       fileInfo.textContent = "";
       imagePreview.style.display = "none";
       imagePreview.src = "";
       imagePreview.alt = "";
+
+      tipsBox.style.display = "none";
+
       ocrBtn.style.display = "none";
       ocrStatus.style.display = "none";
       ocrStatus.textContent = "";
       resultBox.style.display = "none";
+      lastDownscaledCanvas = null;
 
       const file = fileInput.files && fileInput.files[0];
       if (!file) return;
@@ -318,7 +400,7 @@
 
       if (isPdf) {
         currentFileKind = "pdf";
-        // пока без PDF OCR
+        tipsBox.style.display = "none";
         ocrBtn.style.display = "none";
         ocrStatus.style.display = "block";
         ocrStatus.textContent = TEXTS[currentLang].pickedPdf;
@@ -327,14 +409,32 @@
 
       if (isImage) {
         currentFileKind = "image";
+
         const url = URL.createObjectURL(file);
         imagePreview.src = url;
         imagePreview.alt = file.name;
         imagePreview.style.display = "block";
 
-        ocrBtn.style.display = "block";
-        ocrStatus.style.display = "block";
-        ocrStatus.textContent = TEXTS[currentLang].pickedImage;
+        // show tips + quality check (based on downscaled canvas)
+        tipsBox.style.display = "block";
+
+        try {
+          const { dataUrl, canvas } = await downscaleImageToDataUrl(file, 1600);
+          lastDownscaledCanvas = canvas;
+
+          const qc = qualityCheck(canvas);
+          ocrStatus.style.display = "block";
+          ocrStatus.textContent = qc.ok ? TEXTS[currentLang].qualityGood : TEXTS[currentLang].qualityBad(qc.msg);
+
+          // enable OCR anyway, but user is warned
+          ocrBtn.style.display = "block";
+        } catch (e) {
+          // fallback: still allow OCR
+          ocrBtn.style.display = "block";
+          ocrStatus.style.display = "block";
+          ocrStatus.textContent = TEXTS[currentLang].pickedImage;
+        }
+
         return;
       }
 
@@ -355,10 +455,15 @@
         ocrStatus.style.display = "block";
         ocrStatus.textContent = TEXTS[currentLang].ocrWorking(0);
 
-        // downscale for speed
-        const dataUrl = await downscaleImageToDataUrl(currentFile, 1600);
+        // use already downscaled canvas if exists; else downscale now
+        let dataUrl;
+        if (lastDownscaledCanvas) {
+          dataUrl = lastDownscaledCanvas.toDataURL("image/jpeg", 0.9);
+        } else {
+          const r = await downscaleImageToDataUrl(currentFile, 1600);
+          dataUrl = r.dataUrl;
+        }
 
-        // OCR languages: German + Russian + Ukrainian (helps with mixed letters)
         const lang = "deu+rus+ukr";
 
         const { data } = await Tesseract.recognize(dataUrl, lang, {
@@ -370,9 +475,11 @@
           }
         });
 
-        const text = (data && data.text) ? data.text.trim() : "";
-        if (text.length > 0) {
-          textInput.value = text;
+        const raw = (data && data.text) ? data.text : "";
+        const cleaned = cleanOcrText(raw);
+
+        if (cleaned.length > 0) {
+          textInput.value = cleaned;
           ocrStatus.textContent = TEXTS[currentLang].ocrDone;
         } else {
           ocrStatus.textContent = TEXTS[currentLang].ocrFail;
