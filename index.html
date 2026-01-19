@@ -58,7 +58,20 @@ const TEXTS = {
     hint: "Це демо-екран. Наступний крок — підключити завантаження файлу та аналіз."
   }
 };
+  const uploadBtn = document.getElementById("uploadBtn");
+  const fileInput = document.getElementById("fileInput");
+  const fileInfo = document.getElementById("fileInfo");
 
+  uploadBtn.addEventListener("click", () => {
+    fileInput.click();
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (!fileInput.files.length) return;
+
+    const file = fileInput.files[0];
+    fileInfo.innerText = `Valitud fail: ${file.name}`;
+  });
 function setLang(lang) {
   document.documentElement.lang = lang;
   document.getElementById("title").innerText = TEXTS[lang].title;
@@ -67,7 +80,6 @@ function setLang(lang) {
   document.getElementById("disclaimer").innerText = TEXTS[lang].disclaimer;
   document.querySelector(".hint").innerText = TEXTS[lang].hint;
 }
-<script>
   const uploadBtn = document.getElementById('uploadBtn');
   const fileInput = document.getElementById('fileInput');
   const fileInfo  = document.getElementById('fileInfo');
@@ -87,4 +99,5 @@ function setLang(lang) {
 
 </body>
 </html>
+
 
