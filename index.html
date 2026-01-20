@@ -7,11 +7,12 @@
   <link rel="stylesheet" href="style.css" />
 
   <style>
-    /* Минимальные стили для карусели/индикатора (не ломают твой style.css) */
     .actionsRow{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
     .actionsRow .btn{flex:1; min-width:180px;}
     .muted{opacity:0.9}
     .chip{display:inline-block; padding:6px 10px; border-radius:999px; background:rgba(0,0,0,0.12); font-size:12px; opacity:0.95}
+    .smallNote{margin-top:8px; font-size:12px; opacity:0.85; line-height:1.35}
+
     .carouselWrap{margin-top:12px; display:none;}
     .carouselHeader{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px;}
     .carousel{
@@ -55,6 +56,12 @@
     .lockNote{margin-top:8px; font-size:12px; opacity:0.9}
 
     .hintBox{margin-top:10px; padding:10px 12px; border-radius:14px; background:rgba(0,0,0,0.10); display:none;}
+
+    .panel{display:none; margin-top:12px; padding:12px; border-radius:14px; background:rgba(0,0,0,0.12);}
+    .panelTitle{font-weight:800; margin-bottom:6px;}
+    .panelText{white-space:pre-wrap; opacity:0.95;}
+    .panelActions{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
+    .panelActions .btn{flex:1; min-width:220px;}
   </style>
 </head>
 
@@ -68,15 +75,17 @@
         Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.
       </p>
 
-      <!-- 2 режима добавления: камера и выбор файлов -->
       <div class="actionsRow">
         <button id="cameraBtn" class="btn" type="button">Сделать фото</button>
-        <button id="filesBtn" class="btn" type="button">Выбрать файлы</button>
+        <button id="filesBtn"  class="btn" type="button">Выбрать файлы</button>
       </div>
 
-      <!-- Скрытые инпуты -->
+      <div class="smallNote">
+        <b>Важно:</b> PDF в Telegram Mini App часто не обрабатывается. Для надёжного результата используйте фото/скрин страниц письма.
+      </div>
+
       <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none" />
-      <input id="filesInput" type="file" accept="image/*" multiple style="display:none" />
+      <input id="filesInput"  type="file" accept="image/*" multiple style="display:none" />
 
       <!-- Карусель -->
       <div id="carouselWrap" class="carouselWrap">
@@ -90,6 +99,19 @@
       <!-- Подсказка при 0 страниц -->
       <div id="zeroHint" class="hintBox">
         Для анализа, пожалуйста, добавьте файл.
+      </div>
+
+      <!-- Гейт на плохие страницы (A) -->
+      <div id="qualityGate" class="panel">
+        <div class="panelTitle">Обнаружены нечитаемые страницы</div>
+        <div id="qualityText" class="panelText"></div>
+        <div class="panelActions">
+          <button id="showBadBtn" class="btn" type="button">Показать нечитаемые</button>
+          <button id="deleteBadBtn" class="btn" type="button">Удалить нечитаемые</button>
+        </div>
+        <div class="smallNote">
+          Переснимите/замените отмеченные страницы и повторите анализ. Это нужно, чтобы результат был точным и полным.
+        </div>
       </div>
 
       <!-- Кнопка финального запуска -->
@@ -112,39 +134,38 @@
       </div>
 
       <!-- Результат -->
-      <div id="resultBox" style="display:none; margin-top:12px; padding:12px; border-radius:14px; background:rgba(0,0,0,0.12);">
+      <div id="resultBox" class="panel">
         <div id="doneBanner" style="display:none; margin-bottom:10px;">
           <div style="font-weight:800;">Анализ завершён</div>
           <div style="opacity:0.95; margin-top:2px;">Ниже — результат проверки письма</div>
         </div>
 
-        <div id="resultTitle" style="font-weight:800; margin-bottom:6px;"></div>
-        <div id="resultSupport" style="margin-bottom:10px; opacity:0.95;"></div>
-        <div id="resultDetails" style="white-space:pre-wrap; opacity:0.95;"></div>
+        <div id="resultTitle" class="panelTitle"></div>
+        <div id="resultSupport" class="panelText" style="margin-bottom:10px;"></div>
+        <div id="resultDetails" class="panelText"></div>
 
         <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.14);">
-          <div style="font-weight:800; margin-bottom:6px;">Кратко о письме</div>
-          <div id="aboutText" style="white-space:pre-wrap; opacity:0.95;"></div>
+          <div class="panelTitle">Кратко о письме</div>
+          <div id="aboutText" class="panelText"></div>
         </div>
 
         <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.14);">
-          <div style="font-weight:800; margin-bottom:6px;">Перевод (будет позже)</div>
-          <div style="white-space:pre-wrap; opacity:0.95;">
-Сделаем так: независимо от результата будет понятный перевод и объяснение письма.
-Подключим AI на следующем этапе (после стабилизации входа и многостраничности).
+          <div class="panelTitle">Перевод (следующий этап)</div>
+          <div class="panelText">
+Независимо от результата мы добавим понятный перевод и объяснение письма.
+Это будет подключено на следующем этапе через AI (после стабилизации входа и многостраничности).
           </div>
         </div>
       </div>
 
       <small class="version" style="display:block; margin-top:12px; opacity:0.85;">
-        v1.2 · Multi-page images + carousel preview + quality marking + ring progress + fixed microcopy
+        v1.3 · Quality gate (A) + confident wording + stable multi-page images
       </small>
     </div>
   </div>
 
   <!-- Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
   <!-- Tesseract.js -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
@@ -171,6 +192,11 @@
     const pLine1 = document.getElementById("pLine1");
     const pLine2 = document.getElementById("pLine2");
 
+    const qualityGate = document.getElementById("qualityGate");
+    const qualityText = document.getElementById("qualityText");
+    const showBadBtn = document.getElementById("showBadBtn");
+    const deleteBadBtn = document.getElementById("deleteBadBtn");
+
     const resultBox = document.getElementById("resultBox");
     const doneBanner = document.getElementById("doneBanner");
     const resultTitle = document.getElementById("resultTitle");
@@ -187,11 +213,17 @@
       return Math.random().toString(16).slice(2) + Date.now().toString(16);
     }
 
+    function hasBadPages() {
+      return pages.some(p => p.bad);
+    }
+
     function setLocked(v) {
       isLocked = v;
       cameraBtn.disabled = v;
       filesBtn.disabled = v;
-      analyzeBtn.disabled = v || pages.length === 0;
+
+      // анализ можно запускать только если: не залочено, есть страницы, нет bad pages
+      analyzeBtn.disabled = v || pages.length === 0 || hasBadPages();
 
       // блокируем кнопки удаления
       carousel.querySelectorAll("button[data-del]").forEach(btn => btn.disabled = v);
@@ -200,11 +232,10 @@
     function showZeroHintIfNeeded() {
       if (pages.length === 0) {
         zeroHint.style.display = "block";
-        analyzeBtn.disabled = true;
       } else {
         zeroHint.style.display = "none";
-        analyzeBtn.disabled = isLocked;
       }
+      analyzeBtn.disabled = isLocked || pages.length === 0 || hasBadPages();
     }
 
     function updateCounters() {
@@ -212,7 +243,6 @@
       if (pages.length === 0) {
         pageIndex.textContent = "Страница: 0 / 0";
       } else {
-        // определяем текущую страницу по scroll
         const idx = getVisibleIndex();
         pageIndex.textContent = "Страница: " + (idx + 1) + " / " + pages.length;
       }
@@ -232,17 +262,24 @@
       return best;
     }
 
+    function scrollToPage(index) {
+      const slides = Array.from(carousel.querySelectorAll(".slide"));
+      const s = slides[index];
+      if (!s) return;
+      carousel.scrollTo({ left: s.offsetLeft, behavior: "smooth" });
+    }
+
     function renderCarousel() {
       carousel.innerHTML = "";
+
       if (pages.length === 0) {
         carouselWrap.style.display = "none";
-        showZeroHintIfNeeded();
         updateCounters();
+        showZeroHintIfNeeded();
         return;
       }
 
       carouselWrap.style.display = "block";
-      showZeroHintIfNeeded();
 
       pages.forEach((p, idx) => {
         const slide = document.createElement("div");
@@ -276,7 +313,7 @@
 
         const badNote = document.createElement("div");
         badNote.className = "badNote";
-        badNote.textContent = p.badReason || "Обнаружена плохо читаемая страница. Рекомендуем заменить для точного результата.";
+        badNote.textContent = p.badReason || "Страница плохо читается. Переснимите/замените для точного результата.";
 
         slide.appendChild(img);
         slide.appendChild(meta);
@@ -286,23 +323,25 @@
       });
 
       updateCounters();
+      showZeroHintIfNeeded();
     }
 
     function removePage(id) {
       const i = pages.findIndex(p => p.id === id);
       if (i >= 0) {
-        // освобождаем blob url
         try { URL.revokeObjectURL(pages[i].thumbUrl); } catch(e) {}
         try { URL.revokeObjectURL(pages[i].fullUrl); } catch(e) {}
         pages.splice(i, 1);
       }
+      // при удалении обновляем гейт и кнопки
+      updateQualityGate();
       renderCarousel();
+      resultBox.style.display = "none";
+      progressBox.style.display = "none";
     }
 
     async function createThumbAndFull(file) {
-      // Создаём blob URLs (быстро). Для OCR будем работать с canvas downscale.
       const fullUrl = URL.createObjectURL(file);
-      // Для превью используем тот же blob url (можно отдельно — но достаточно)
       const thumbUrl = fullUrl;
       return { thumbUrl, fullUrl };
     }
@@ -310,7 +349,8 @@
     async function addFiles(fileList) {
       const arr = Array.from(fileList || []);
       if (!arr.length) return;
-      // Добавляем в порядке выбора
+
+      // при добавлении новых файлов: сбрасываем старые bad-оценки только для новых страниц
       for (const f of arr) {
         if (!f || !f.type || !f.type.startsWith("image/")) continue;
         const { thumbUrl, fullUrl } = await createThumbAndFull(f);
@@ -325,13 +365,17 @@
           ocrConfidence: null
         });
       }
-      // Сброс input, чтобы можно было выбрать те же файлы снова
+
       cameraInput.value = "";
       filesInput.value = "";
-      // Скрываем результат при новом добавлении
+
+      // Скрываем панели при новом добавлении
       resultBox.style.display = "none";
-      doneBanner.style.display = "none";
+      qualityGate.style.display = "none";
+      progressBox.style.display = "none";
+
       renderCarousel();
+      updateQualityGate();
     }
 
     // OCR helpers
@@ -354,7 +398,7 @@
       const canvas = document.createElement("canvas");
       canvas.width = nw;
       canvas.height = nh;
-      const ctx = canvas.getContext("2d", { willReadFrequently: false });
+      const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, nw, nh);
 
       URL.revokeObjectURL(url);
@@ -372,23 +416,11 @@
     }
 
     async function ocrOnePage(pageObj, idx, total) {
-      // Микротексты (наша спецификация)
       pLine1.textContent = "Анализ идёт";
-      // динамика по шагам
-      if (total > 1) {
-        pLine2.textContent = "Обрабатываем страницы: " + (idx + 1) + " из " + total;
-      } else {
-        pLine2.textContent = "Обрабатываем все страницы письма";
-      }
+      pLine2.textContent = "Обрабатываем страницы: " + (idx + 1) + " из " + total;
 
       const dataUrl = await downscaleToDataUrl(pageObj.file, 1800);
-
-      const { data } = await Tesseract.recognize(dataUrl, "deu+rus", {
-        logger: (m) => {
-          // не показываем проценты (по нашей психологии), но можно слегка менять текст
-          // оставляем минимально.
-        }
-      });
+      const { data } = await Tesseract.recognize(dataUrl, "deu+rus", {});
 
       const rawText = (data && data.text) ? data.text : "";
       const cleaned = cleanOcrText(rawText);
@@ -397,18 +429,14 @@
       pageObj.ocrText = cleaned;
       pageObj.ocrConfidence = confidence;
 
-      // оценка качества (простая, но практичная)
-      // 1) очень мало текста
-      // 2) низкая confidence
-      const tooShort = cleaned.length < 40;
+      const tooShort = cleaned.length < 60;
       const lowConf = (confidence !== null && confidence < 55);
 
       if (tooShort || lowConf) {
         pageObj.bad = true;
-        let reason = "Обнаружена плохо читаемая страница. Рекомендуем заменить для точного результата.";
-        if (tooShort && lowConf) reason = "Страница читается плохо (мало текста и низкое качество распознавания). Рекомендуем переснять/заменить.";
+        let reason = "Качество распознавания низкое. Рекомендуем переснять/заменить для точного результата.";
+        if (tooShort && lowConf) reason = "Страница распознана плохо (мало текста и низкое качество). Рекомендуем переснять/заменить.";
         else if (tooShort) reason = "На странице почти не удалось распознать текст. Рекомендуем переснять/заменить.";
-        else if (lowConf) reason = "Качество распознавания низкое. Рекомендуем переснять/заменить для точного результата.";
         pageObj.badReason = reason;
       } else {
         pageObj.bad = false;
@@ -416,10 +444,11 @@
       }
     }
 
-    // Analysis (rule-based)
+    // ---------- Analysis (rule-based, без "возможно/похоже") ----------
     function normalize(s) {
       return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
     }
+
     function findDeadline(text) {
       const m1 = text.match(/\b(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
       if (m1) return m1[1];
@@ -427,86 +456,129 @@
       if (m2) return m2[2];
       return "";
     }
+
     function analyzeText(raw) {
       const t = normalize(raw);
-      if (t.length < 60) return { kind: "unclear", deadline: "" };
+      if (t.length < 100) return { kind: "insufficient", deadline: "", signals: [] };
 
-      const actionSignals = [
+      const signalsAction = [
         "bitte","wir bitten","sie werden gebeten","sie sind verpflichtet",
         "erforderlich","nachweisen","nachweis","einreichen","vorlegen",
         "termin","einladung","melden sie sich","rückmeldung",
-        "frist","bis zum","spätestens","umgehend","sofort",
+        "frist","bis zum","spätestens","umgehend",
         "anhörung","mitwirkung","aufforderung","fehlende unterlagen",
         "unterlagen","kontoauszüge","mietvertrag","ausfüllen","formular"
       ];
-      const infoSignals = [
-        "bewilligung","bescheid","änderungsbescheid","mitteilung","information",
-        "zahlung","auszahlung","überweisung","betrag",
-        "wir informieren","zur kenntnis","hinweis","bewilligungsbescheid",
-        "veränderungsmitteilung"
-      ];
 
-      let actionScore = 0, infoScore = 0;
-      for (const w of actionSignals) if (t.includes(w)) actionScore++;
-      for (const w of infoSignals) if (t.includes(w)) infoScore++;
-
+      const found = signalsAction.filter(w => t.includes(w));
       const deadline = findDeadline(t);
 
-      if (actionScore >= 2 || (actionScore >= 1 && (t.includes("frist") || t.includes("termin") || deadline))) {
-        return { kind: "needAction", deadline };
+      // Решение через факты: "найдены сигналы" vs "не найдены"
+      if (found.length >= 2 || (found.length >= 1 && (t.includes("frist") || t.includes("termin") || deadline))) {
+        return { kind: "needAction", deadline, signals: found.slice(0, 6) };
       }
-      if (infoScore >= 2 && actionScore === 0) return { kind: "noAction", deadline: "" };
-      return { kind: "unclear", deadline: "" };
+
+      // если явных сигналов действия нет — считаем "не требуется действие"
+      return { kind: "noAction", deadline: "", signals: [] };
     }
 
-    function explainLetter(raw) {
+    function aboutLetter(raw) {
       const t = normalize(raw);
-      if (t.length < 60) return "Пока мало текста. Добавьте/переснимите страницу с основной частью (где Bitte / Frist / Termin).";
-
+      if (t.length < 100) {
+        return "Текста недостаточно для уверенного вывода. Добавьте страницу с основной частью письма (где указаны просьбы, сроки или термин).";
+      }
       const hasTermin = /termin|einladung|melden sie sich|vorsprechen/.test(t);
       const hasDocs = /unterlagen|nachweis|nachweisen|einreichen|vorlegen|mitwirkung|aufforderung|fehlende|ausfüllen|formular/.test(t);
       const hasPay = /bürgergeld|zahlung|auszahlung|betrag|überweisung|monatlich/.test(t);
       const hasBescheid = /bescheid|änderungsbescheid|bewilligung|bewilligungsbescheid|mitteilung|veränderungsmitteilung/.test(t);
 
-      if (hasTermin) return "Похоже на приглашение/термин. Обычно требуется действие: прийти/ответить.";
-      if (hasDocs) return "Похоже на запрос документов/содействие. Обычно требуется действие: предоставить/дослать.";
-      if (hasPay) return "Похоже на письмо о выплате/суммах. Часто это информирование.";
-      if (hasBescheid) return "Похоже на решение/уведомление (Bescheid). Проверьте, есть ли просьба/срок.";
-      return "Тип письма пока неясен. Обратите внимание на слова Bitte / Frist / Termin.";
+      if (hasTermin) return "В письме обнаружены слова, связанные с термином/встречей. Обычно это означает необходимость прийти или ответить.";
+      if (hasDocs) return "В письме обнаружены слова, связанные с документами/подтверждениями. Обычно это означает необходимость предоставить документы.";
+      if (hasPay) return "В письме обнаружены слова, связанные с выплатами/суммами. Часто это информирование о расчётах.";
+      if (hasBescheid) return "В письме обнаружены слова, связанные с решением/уведомлением (Bescheid). Проверьте, есть ли сроки или просьбы.";
+      return "Письмо содержит общий текст. Для точности важны страницы со сроками/просьбами (Bitte / Frist / Termin).";
     }
 
     function showResult(res, combinedText) {
-      // Баннер "Анализ завершён"
       doneBanner.style.display = "block";
 
-      // Заголовки + поддержка по спецификации
-      resultSupport.textContent = "";
       if (res.kind === "needAction") {
         resultTitle.textContent = "✅ Требуется действие";
         resultSupport.textContent = "Это нормально. Ниже — пояснение, что именно требуется.";
+
+        const sig = res.signals.length ? ("Найдены сигналы: " + res.signals.join(", ") + "\n") : "";
+        const dl = res.deadline ? ("Срок, указанный в тексте: " + res.deadline + "\n") : "";
+
         resultDetails.textContent =
-          "Похоже, Jobcenter ожидает от вас действие.\n" +
-          (res.deadline ? ("Возможный срок: " + res.deadline + "\n") : "") +
-          "Проверьте: просят ли предоставить документы, заполнить форму или прийти в термин.\n\n" +
-          "Совет: если видите слова Bitte / Frist / Termin — это почти всегда сигнал к действию.";
-      } else if (res.kind === "noAction") {
-        resultTitle.textContent = "❌ Действие не требуется (скорее всего)";
-        resultSupport.textContent = "Это информационное письмо. Обычно в таком случае никаких действий не требуется.";
+          sig + dl +
+          "Что сделать:\n" +
+          "• проверьте, просят ли предоставить документы (Unterlagen / Nachweis),\n" +
+          "• или прийти/ответить по термину (Termin / Einladung),\n" +
+          "• или заполнить форму (Formular / ausfüllen).\n\n" +
+          "Совет: если в письме есть Bitte / Frist / Termin — это прямой сигнал к действию.";
+      }
+      else if (res.kind === "noAction") {
+        resultTitle.textContent = "❌ Действие не требуется";
+        resultSupport.textContent =
+          "В распознанном тексте не обнаружены просьбы: прислать документы, ответить или прийти в термин.";
+
         resultDetails.textContent =
-          "Похоже, письмо носит информационный характер (уведомление/решение/суммы).\n" +
-          "Если нет просьбы прислать документы, прийти в термин или ответить — обычно действия не требуется.";
-      } else {
-        resultTitle.textContent = "⚠️ Неясно — нужна проверка";
-        resultSupport.textContent = "В письме есть неоднозначные формулировки. Ниже — на что стоит обратить внимание.";
+          "Что это значит:\n" +
+          "• письмо похоже на информационное уведомление (без обязательных действий).\n" +
+          "• если вы ожидаете запрос документов или приглашение — проверьте, не пропущена ли какая-то страница.\n";
+      }
+      else {
+        resultTitle.textContent = "⚠️ Недостаточно данных";
+        resultSupport.textContent =
+          "Текст распознан частично или отсутствуют ключевые фразы. Добавьте/переснимите страницу с основной частью письма.";
+
         resultDetails.textContent =
-          "Сигналы неочевидны.\n" +
-          "Для точности нужна страница с основной частью письма (где указаны Bitte / Frist / Termin / Unterlagen).\n" +
-          "Если какая-то страница отмечена красной рамкой — лучше переснять её.";
+          "Как исправить:\n" +
+          "• снимите страницу ближе (текст должен занимать 70–90% кадра)\n" +
+          "• уберите блики/тени\n" +
+          "• добавьте страницу со словами Bitte / Frist / Termin (если они есть)\n";
       }
 
-      aboutText.textContent = explainLetter(combinedText);
+      aboutText.textContent = aboutLetter(combinedText);
+
       resultBox.style.display = "block";
+      qualityGate.style.display = "none";
     }
+
+    // ---------- Quality Gate (A) ----------
+    function updateQualityGate() {
+      if (!hasBadPages()) {
+        qualityGate.style.display = "none";
+        qualityText.textContent = "";
+        analyzeBtn.disabled = isLocked || pages.length === 0;
+        return;
+      }
+
+      const badIdx = pages
+        .map((p, i) => p.bad ? (i + 1) : null)
+        .filter(Boolean);
+
+      qualityGate.style.display = "block";
+      qualityText.textContent =
+        "Нечитаемые страницы: " + badIdx.join(", ") + "\n" +
+        "Чтобы анализ был точным, исправьте их: переснимите или удалите.";
+
+      // пока есть bad — анализ запрещён
+      analyzeBtn.disabled = true;
+    }
+
+    showBadBtn.addEventListener("click", () => {
+      const firstBad = pages.findIndex(p => p.bad);
+      if (firstBad >= 0) scrollToPage(firstBad);
+    });
+
+    deleteBadBtn.addEventListener("click", () => {
+      if (isLocked) return;
+      const toRemove = pages.filter(p => p.bad).map(p => p.id);
+      toRemove.forEach(id => removePage(id));
+      updateQualityGate();
+      renderCarousel();
+    });
 
     // ---------- Events ----------
     cameraBtn.addEventListener("click", () => {
@@ -529,51 +601,46 @@
       await addFiles(filesInput.files);
     });
 
-    carousel.addEventListener("scroll", () => {
-      // обновляем индикатор страницы при пролистывании
-      updateCounters();
-    });
+    carousel.addEventListener("scroll", () => updateCounters());
 
     analyzeBtn.addEventListener("click", async () => {
       if (isLocked) return;
-      if (pages.length === 0) {
-        showZeroHintIfNeeded();
-        return;
-      }
+      if (pages.length === 0) { showZeroHintIfNeeded(); return; }
+      if (hasBadPages()) { updateQualityGate(); return; } // A: блокируем
 
-      // Старт анализа: блокируем
+      // Старт анализа
       setLocked(true);
-      // Сброс результата
       resultBox.style.display = "none";
+      qualityGate.style.display = "none";
       doneBanner.style.display = "none";
 
-      // Показываем прогресс + стартовый микротекст (якорь)
       progressBox.style.display = "block";
       pLine1.textContent = "Анализ идёт";
       pLine2.textContent = "Контролируем содержание письма";
 
-      // Чуть позже переключаем на "Обрабатываем все страницы"
-      setTimeout(() => {
-        if (!isLocked) return;
-        pLine1.textContent = "Анализ идёт";
-        pLine2.textContent = (pages.length > 1)
-          ? ("Обрабатываем все страницы письма")
-          : ("Обрабатываем все страницы письма");
-      }, 900);
-
       try {
-        // OCR по всем страницам последовательно (надёжнее, меньше лагов)
+        // OCR по всем страницам
         for (let i = 0; i < pages.length; i++) {
           await ocrOnePage(pages[i], i, pages.length);
-          // Обновим визуально красные рамки, если появились
           renderCarousel();
         }
 
-        // Перед результатом — ключевой текст
+        // После OCR: если выявились bad pages — включаем гейт (A) и стоп
+        updateQualityGate();
+        if (hasBadPages()) {
+          progressBox.style.display = "none";
+          setLocked(false);
+          showZeroHintIfNeeded();
+          // автопрокрутка к первой проблемной
+          const firstBad = pages.findIndex(p => p.bad);
+          if (firstBad >= 0) scrollToPage(firstBad);
+          return;
+        }
+
+        // Перед результатом
         pLine1.textContent = "Анализ идёт";
         pLine2.textContent = "Проверяем, требуется ли от вас действие";
 
-        // Склеиваем общий текст
         const combinedText = pages
           .map((p, idx) => `--- Страница ${idx + 1} ---\n${p.ocrText || ""}`)
           .join("\n\n");
@@ -584,35 +651,36 @@
         pLine1.textContent = "Анализ завершён";
         pLine2.textContent = "Ниже — результат проверки письма";
 
-        // Небольшая пауза для психологического "закрытия процесса"
         setTimeout(() => {
           showResult(res, combinedText);
           progressBox.style.display = "none";
           setLocked(false);
           showZeroHintIfNeeded();
-        }, 450);
+        }, 350);
 
       } catch (e) {
-        // На случай сбоя OCR
         progressBox.style.display = "none";
         setLocked(false);
         showZeroHintIfNeeded();
 
         resultBox.style.display = "block";
+        qualityGate.style.display = "none";
         doneBanner.style.display = "none";
+
         resultTitle.textContent = "⚠️ Не удалось завершить анализ";
-        resultSupport.textContent = "Это нормально. Попробуйте ещё раз — лучше с более чёткими страницами.";
+        resultSupport.textContent = "Это нормально. Переснимите страницы ближе и попробуйте ещё раз.";
         resultDetails.textContent =
           "Рекомендации:\n" +
-          "• Сделайте фото ближе (текст должен занимать 70–90% кадра)\n" +
-          "• Уберите блики и тени\n" +
-          "• Переснимите страницы, которые отмечены красной рамкой\n";
+          "• текст должен занимать 70–90% кадра\n" +
+          "• без бликов и теней\n" +
+          "• переснимите страницы, которые могут быть нечитаемыми\n";
         aboutText.textContent = "—";
       }
     });
 
     // init
     renderCarousel();
+    updateQualityGate();
     showZeroHintIfNeeded();
   </script>
 </body>
