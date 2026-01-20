@@ -118,7 +118,7 @@
       </div>
 
       <small class="version">
-        v1.7 · +delete current bad · +bad/warn list · thumbnails+ocrBlob · warn/bad · quality panel · single worker · yield · no full rerender · max 15
+        v1.8 · iOS fix: progress+fast deu + auto deu+rus · +delete current bad · +bad/warn list · thumbnails+ocrBlob · warn/bad · quality panel · single worker · yield · no full rerender · max 15
       </small>
     </div>
   </div>
@@ -136,6 +136,10 @@
     // ---------------- Constants ----------------
     const MAX_PAGES = 15;
     document.getElementById("maxPagesText").textContent = String(MAX_PAGES);
+
+    // OCR modes
+    const OCR_LANG_FAST = "deu";
+    const OCR_LANG_FULL = "deu+rus";
 
     // ---------------- DOM ----------------
     const cameraBtn = document.getElementById("cameraBtn");
@@ -179,6 +183,7 @@
 
     // single OCR worker
     let ocrWorker = null;
+    let ocrLangInited = null;
 
     // ---------------- Helpers ----------------
     function uid() {
@@ -195,10 +200,6 @@
 
     function hasBadPages() {
       return pages.some(p => p.status === "bad");
-    }
-
-    function hasWarnPages() {
-      return pages.some(p => p.status === "warn");
     }
 
     function badIndexes() {
@@ -600,17 +601,31 @@
       showZeroHintIfNeeded();
     }
 
-    // ---------------- OCR worker ----------------
-    async function getOcrWorker() {
-      if (ocrWorker) return ocrWorker;
+    // ---------------- OCR worker (with progress + fast lang) ----------------
+    async function getOcrWorker(lang) {
+      if (!lang) lang = OCR_LANG_FAST;
 
-      // v5 API
-      ocrWorker = await Tesseract.createWorker({
-        logger: () => {} // можно включить позже, если нужно
-      });
+      if (!ocrWorker) {
+        ocrWorker = await Tesseract.createWorker({
+          logger: (m) => {
+            const pct = (typeof m.progress === "number") ? Math.round(m.progress * 100) : null;
+            pLine1.textContent = "Анализ идёт";
+            pLine2.textContent = (pct !== null)
+              ? `${m.status}: ${pct}%`
+              : `${m.status}`;
+          }
+        });
+      }
 
-      await ocrWorker.loadLanguage("deu+rus");
-      await ocrWorker.initialize("deu+rus");
+      if (ocrLangInited === lang) return ocrWorker;
+
+      pLine1.textContent = "Подготовка OCR";
+      pLine2.textContent = "Загружаем языки (первый запуск может занять время)";
+
+      await ocrWorker.loadLanguage(lang);
+      await ocrWorker.initialize(lang);
+
+      ocrLangInited = lang;
       return ocrWorker;
     }
 
@@ -618,6 +633,7 @@
       if (!ocrWorker) return;
       try { await ocrWorker.terminate(); } catch(e) {}
       ocrWorker = null;
+      ocrLangInited = null;
     }
 
     // ---------------- OCR cleaning ----------------
@@ -655,7 +671,6 @@
 
       const conf = (confidence !== null && typeof confidence === "number") ? confidence : null;
 
-      // Пороги (balanced)
       const confBad = (conf !== null && conf < 50);
       const confOk  = (conf === null || conf >= 55);
 
@@ -710,16 +725,36 @@
       return { status: "ok", reason: "", metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals } };
     }
 
+    // ---------------- OCR per page (FAST deu, switch to deu+rus only if needed) ----------------
     async function ocrOnePage(pageObj, idx, total) {
       pLine1.textContent = "Анализ идёт";
       pLine2.textContent = "Обрабатываем страницы: " + (idx + 1) + " из " + total;
 
-      const worker = await getOcrWorker();
+      // 1) fast OCR: deu
+      let worker = await getOcrWorker(OCR_LANG_FAST);
+      const r1 = await worker.recognize(pageObj.ocrBlob);
 
-      const { data } = await worker.recognize(pageObj.ocrBlob);
-      const rawText = (data && data.text) ? data.text : "";
-      const cleaned = cleanOcrText(rawText);
-      const conf = (data && typeof data.confidence === "number") ? data.confidence : null;
+      const rawText1 = (r1.data && r1.data.text) ? r1.data.text : "";
+      const cleaned1 = cleanOcrText(rawText1);
+      const conf1 = (r1.data && typeof r1.data.confidence === "number") ? r1.data.confidence : null;
+
+      const hasCyr = /[А-Яа-яЁёІіЇїЄє]/.test(cleaned1);
+
+      let cleaned = cleaned1;
+      let conf = conf1;
+
+      // 2) switch to full only if кириллица реально есть
+      if (hasCyr) {
+        pLine1.textContent = "Анализ идёт";
+        pLine2.textContent = "Обнаружена кириллица → включаем RU (может занять время)";
+
+        worker = await getOcrWorker(OCR_LANG_FULL);
+        const r2 = await worker.recognize(pageObj.ocrBlob);
+
+        const rawText2 = (r2.data && r2.data.text) ? r2.data.text : "";
+        cleaned = cleanOcrText(rawText2);
+        conf = (r2.data && typeof r2.data.confidence === "number") ? r2.data.confidence : conf1;
+      }
 
       pageObj.ocrText = cleaned;
       pageObj.ocrConfidence = conf;
@@ -860,7 +895,7 @@
 
       progressBox.style.display = "block";
       pLine1.textContent = "Анализ идёт";
-      pLine2.textContent = "Контролируем содержание письма";
+      pLine2.textContent = "Подготовка OCR (первый запуск может занять время)";
 
       try {
         // OCR sequential + yield + no full rerender
@@ -878,7 +913,7 @@
         if (hasBadPages()) {
           progressBox.style.display = "none";
           setLocked(false);
-          updateQualityPanel(); // PATCH 2: важный вызов после unlock
+          updateQualityPanel();
           showZeroHintIfNeeded();
 
           const fb = firstBadIndex();
