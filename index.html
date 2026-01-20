@@ -5,87 +5,15 @@
   <title>Jobcenter Letter Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="style.css" />
-
-  <style>
-    /* Page-local UI styles (component-level) */
-    .actionsRow{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
-    .actionsRow .btn{flex:1; min-width:180px;}
-    .chip{display:inline-block; padding:6px 10px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); font-size:12px; opacity:0.95}
-    .smallNote{margin-top:8px; font-size:12px; opacity:0.88; line-height:1.35}
-
-    .carouselWrap{margin-top:12px; display:none;}
-    .carouselHeader{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px;}
-    .carousel{
-      display:flex; gap:10px; overflow-x:auto; padding-bottom:8px;
-      scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
-    }
-    .slide{
-      scroll-snap-align:start;
-      flex:0 0 220px;
-      background:rgba(255,255,255,0.05);
-      border-radius:14px;
-      padding:10px;
-      border:2px solid transparent;
-      position:relative;
-    }
-    .slide.bad{border-color:rgba(255,0,0,0.75);}
-    .slide.warn{border-color:rgba(255,170,0,0.75);}
-    .slide img{width:100%; height:150px; object-fit:cover; border-radius:12px; display:block;}
-    .slideMeta{margin-top:8px; display:flex; justify-content:space-between; align-items:center; gap:8px;}
-    .slideMeta .pageNo{font-weight:800; font-size:13px;}
-    .delBtn{
-      border:none; background:rgba(255,255,255,0.10); color:inherit;
-      border-radius:10px; padding:6px 10px; cursor:pointer; opacity:0.95;
-    }
-    .delBtn:disabled{opacity:0.4; cursor:not-allowed;}
-
-    .badNote{
-      margin-top:8px; font-size:12px; color:rgba(255,120,120,1);
-      display:none; white-space:pre-wrap;
-    }
-    .slide.bad .badNote{display:block;}
-
-    .warnNote{
-      margin-top:8px; font-size:12px; color:rgba(255,210,120,1);
-      display:none; white-space:pre-wrap;
-    }
-    .slide.warn .warnNote{display:block;}
-
-    .progressBox{display:none; margin-top:12px; padding:12px; border-radius:14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10);}
-    .progressRow{display:flex; align-items:center; gap:12px;}
-    .ring{
-      width:26px; height:26px; border-radius:50%;
-      border:3px solid rgba(255,255,255,0.22);
-      border-top-color: rgba(255,255,255,0.85);
-      animation: spin 0.9s linear infinite;
-      flex:0 0 auto;
-    }
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .progressText{line-height:1.25}
-    .progressText .t1{font-weight:900}
-    .progressText .t2{opacity:0.95; margin-top:2px}
-    .lockNote{margin-top:8px; font-size:12px; opacity:0.9}
-
-    .hintBox{margin-top:10px; padding:10px 12px; border-radius:14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.10); display:none;}
-
-    .panel{display:none; margin-top:12px; padding:12px; border-radius:14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10);}
-    .panelTitle{font-weight:900; margin-bottom:6px;}
-    .panelText{white-space:pre-wrap; opacity:0.95;}
-    .panelActions{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
-    .panelActions .btn{flex:1; min-width:220px;}
-  </style>
 </head>
 
 <body>
-  <div class="container">
-    <div class="header">
-      <span class="badge">MVP · Фото/скрины · RU-only</span>
-      <h1 id="title">Проверка письма Jobcenter</h1>
-      <p class="subtitle" id="subtitle">Показываем, требуется ли действие по письму.</p>
-    </div>
+  <div class="app">
+    <h1 id="title">Проверка письма Jobcenter</h1>
+    <p id="subtitle">Помогаем понять, требуется ли действие по письму.</p>
 
     <div class="card">
-      <p class="disclaimer" id="disclaimer">
+      <p id="disclaimer">
         Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.
       </p>
 
@@ -95,9 +23,9 @@
       </div>
 
       <div class="smallNote">
-        <b>Важно:</b> PDF в Telegram Mini App часто не обрабатывается. Для надёжного результата используйте фото/скрин страниц письма.
-        <br/>
-        <b>Лимит:</b> максимум <span id="maxPagesText"></span> страниц за один анализ.
+        <b>Важно:</b> PDF в Telegram Mini App часто не обрабатывается.
+        Для надёжного результата используйте фото/скрин страниц письма.<br>
+        <b>Лимит:</b> максимум 15 страниц за один анализ.
       </div>
 
       <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none" />
@@ -117,22 +45,24 @@
         Для анализа, пожалуйста, добавьте файл.
       </div>
 
-      <!-- Панель качества (bad или warn) -->
+      <!-- Панель качества (bad/warn) -->
       <div id="qualityGate" class="panel">
         <div id="qualityTitle" class="panelTitle">Проверка качества страниц</div>
         <div id="qualityText" class="panelText"></div>
+
         <div class="panelActions">
           <button id="showBadBtn" class="btn" type="button">Показать нечитаемые</button>
           <button id="deleteBadBtn" class="btn" type="button">Удалить нечитаемые</button>
           <button id="showWarnBtn" class="btn" type="button">Показать частично распознанные</button>
         </div>
-        <div class="smallNote" id="qualityNote">
-          Переснимите/замените отмеченные страницы. Это нужно, чтобы результат был точным и полным.
+
+        <div class="smallNote">
+          Плохие страницы блокируют анализ. Частично распознанные страницы не блокируют, но могут снизить точность.
         </div>
       </div>
 
-      <!-- Кнопка финального запуска -->
-      <button id="analyzeBtn" class="btnPrimary" type="button" style="margin-top:12px;" disabled>
+      <!-- Кнопка запуска -->
+      <button id="analyzeBtn" class="btn btnPrimary" type="button" disabled>
         Готово → Анализ
       </button>
 
@@ -145,7 +75,7 @@
             <div id="pLine2" class="t2">Контролируем содержание письма</div>
           </div>
         </div>
-        <div id="lockNote" class="lockNote">
+        <div class="lockNote">
           Во время анализа добавление и удаление страниц временно недоступны.
         </div>
       </div>
@@ -153,7 +83,7 @@
       <!-- Результат -->
       <div id="resultBox" class="panel">
         <div id="doneBanner" style="display:none; margin-bottom:10px;">
-          <div style="font-weight:900;">Анализ завершён</div>
+          <div style="font-weight:800;">Анализ завершён</div>
           <div style="opacity:0.95; margin-top:2px;">Ниже — результат проверки письма</div>
         </div>
 
@@ -175,11 +105,9 @@
         </div>
       </div>
 
-      <div class="footer">
-        <small class="muted">
-          v1.5 · thumbnails + ocrBlob · warn/bad · quality gate A · single worker · yield · no full rerender
-        </small>
-      </div>
+      <small class="version">
+        v1.5 · thumbnails + ocrBlob · warn/bad · quality gate A · single worker · yield · no full rerender
+      </small>
     </div>
   </div>
 
@@ -191,13 +119,9 @@
   <script>
     // Telegram init (safe)
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-    if (tg) { try { tg.ready(); tg.expand(); } catch(e) {} }
+    if (tg) { tg.ready(); tg.expand(); }
 
-    // --- Config (MVP limits) ---
-    const MAX_PAGES = 15;
-    document.getElementById("maxPagesText").textContent = String(MAX_PAGES);
-
-    // DOM
+    // ---------------- DOM ----------------
     const cameraBtn = document.getElementById("cameraBtn");
     const filesBtn  = document.getElementById("filesBtn");
     const cameraInput = document.getElementById("cameraInput");
@@ -218,7 +142,6 @@
     const qualityGate = document.getElementById("qualityGate");
     const qualityTitle = document.getElementById("qualityTitle");
     const qualityText = document.getElementById("qualityText");
-    const qualityNote = document.getElementById("qualityNote");
     const showBadBtn = document.getElementById("showBadBtn");
     const deleteBadBtn = document.getElementById("deleteBadBtn");
     const showWarnBtn = document.getElementById("showWarnBtn");
@@ -230,22 +153,26 @@
     const resultDetails = document.getElementById("resultDetails");
     const aboutText = document.getElementById("aboutText");
 
-    // State
-    // pageObj:
-    // { id, file:null, thumbUrl, ocrBlob, bad, badReason, warn, warnReason, ocrText, ocrConfidence }
+    // ---------------- State ----------------
+    const MAX_PAGES = 15;
+
+    // pages: { id, thumbUrl, ocrBlob, bad, badReason, warn, warnReason, ocrText, ocrConfidence }
     const pages = [];
     let isLocked = false;
 
-    // One worker for whole analysis
     let ocrWorker = null;
 
-    // ---------- Helpers ----------
+    // ---------------- Helpers ----------------
     function uid() {
       return Math.random().toString(16).slice(2) + Date.now().toString(16);
     }
 
     function nextFrame() {
       return new Promise(r => requestAnimationFrame(() => r()));
+    }
+
+    function normalize(s) {
+      return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
     }
 
     function hasBadPages() {
@@ -256,12 +183,12 @@
       return pages.some(p => p.warn && !p.bad);
     }
 
-    function getBadIndexes() {
+    function badIndexes() {
       return pages.map((p,i)=>p.bad ? (i+1) : null).filter(Boolean);
     }
 
-    function getWarnIndexes() {
-      return pages.map((p,i)=>(p.warn && !p.bad) ? (i+1) : null).filter(Boolean);
+    function warnIndexes() {
+      return pages.map((p,i)=> (p.warn && !p.bad) ? (i+1) : null).filter(Boolean);
     }
 
     function firstBadIndex() {
@@ -277,26 +204,19 @@
       cameraBtn.disabled = v;
       filesBtn.disabled = v;
 
-      // analyze enabled only if: unlocked, pages exist, no bad pages
+      // блокируем кнопки удаления на слайдах
+      carousel.querySelectorAll("button[data-del]").forEach(btn => btn.disabled = v);
+
+      // Анализ: только если есть страницы и нет bad
       analyzeBtn.disabled = v || pages.length === 0 || hasBadPages();
 
-      // block delete buttons
-      carousel.querySelectorAll("button[data-del]").forEach(btn => btn.disabled = v);
+      // Также обновим панель качества (чтобы кнопки не "умирали")
+      updateQualityPanel();
     }
 
     function showZeroHintIfNeeded() {
-      zeroHint.style.display = pages.length === 0 ? "block" : "none";
+      zeroHint.style.display = (pages.length === 0) ? "block" : "none";
       analyzeBtn.disabled = isLocked || pages.length === 0 || hasBadPages();
-    }
-
-    function updateCounters() {
-      pagesCount.textContent = "Добавлено: " + pages.length;
-      if (pages.length === 0) {
-        pageIndex.textContent = "Страница: 0 / 0";
-        return;
-      }
-      const idx = getVisibleIndex();
-      pageIndex.textContent = "Страница: " + (idx + 1) + " / " + pages.length;
     }
 
     function getVisibleIndex() {
@@ -313,6 +233,16 @@
       return best;
     }
 
+    function updateCounters() {
+      pagesCount.textContent = "Добавлено: " + pages.length;
+      if (pages.length === 0) {
+        pageIndex.textContent = "Страница: 0 / 0";
+      } else {
+        const idx = getVisibleIndex();
+        pageIndex.textContent = "Страница: " + (idx + 1) + " / " + pages.length;
+      }
+    }
+
     function scrollToPage(index) {
       const slides = Array.from(carousel.querySelectorAll(".slide"));
       const s = slides[index];
@@ -320,28 +250,112 @@
       carousel.scrollTo({ left: s.offsetLeft, behavior: "smooth" });
     }
 
-    function updateSlideByIndex(idx) {
-      const slide = carousel.querySelectorAll(".slide")[idx];
-      if (!slide) return;
-
-      slide.classList.remove("bad", "warn");
-      if (pages[idx].bad) slide.classList.add("bad");
-      else if (pages[idx].warn) slide.classList.add("warn");
-
-      const badNote = slide.querySelector(".badNote");
-      if (badNote) badNote.textContent = pages[idx].badReason || "Страница нечитаема. Переснимите/замените для точного результата.";
-
-      const warnNote = slide.querySelector(".warnNote");
-      if (warnNote) warnNote.textContent = pages[idx].warnReason || "Текст распознан частично. Для точности лучше переснять страницу.";
+    function removePage(id) {
+      const i = pages.findIndex(p => p.id === id);
+      if (i >= 0) {
+        try { URL.revokeObjectURL(pages[i].thumbUrl); } catch(e) {}
+        // ocrBlob release by GC
+        pages.splice(i, 1);
+      }
+      renderCarousel();
+      updateQualityPanel();
+      resultBox.style.display = "none";
+      progressBox.style.display = "none";
+      showZeroHintIfNeeded();
     }
 
+    // ---------------- Image prep: thumbnails + ocrBlob ----------------
+    function loadImageFromFile(file) {
+      return new Promise((res, rej) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => { try { URL.revokeObjectURL(url); } catch(e) {} ; res(img); };
+        img.onerror = () => { try { URL.revokeObjectURL(url); } catch(e) {} ; rej(new Error("Image load failed")); };
+        img.src = url;
+      });
+    }
+
+    function canvasToBlob(canvas, quality) {
+      return new Promise((res) => {
+        canvas.toBlob((b) => res(b), "image/jpeg", quality);
+      });
+    }
+
+    async function resizeToBlob(img, maxSide, quality) {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      const scale = Math.min(1, maxSide / Math.max(w, h));
+      const nw = Math.max(1, Math.round(w * scale));
+      const nh = Math.max(1, Math.round(h * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = nw;
+      canvas.height = nh;
+      const ctx = canvas.getContext("2d", { willReadFrequently: false });
+      ctx.drawImage(img, 0, 0, nw, nh);
+
+      return await canvasToBlob(canvas, quality);
+    }
+
+    async function createThumbAndOcr(file) {
+      const img = await loadImageFromFile(file);
+
+      // thumb (light)
+      const thumbBlob = await resizeToBlob(img, 650, 0.75);
+      const thumbUrl = URL.createObjectURL(thumbBlob);
+
+      // ocr (mid)
+      const ocrBlob = await resizeToBlob(img, 1800, 0.82);
+
+      return { thumbUrl, ocrBlob };
+    }
+
+    async function addFiles(fileList) {
+      const arr = Array.from(fileList || []);
+      if (!arr.length) return;
+
+      for (const f of arr) {
+        if (!f || !f.type || !f.type.startsWith("image/")) continue;
+
+        if (pages.length >= MAX_PAGES) {
+          // мягко игнорируем лишние
+          break;
+        }
+
+        const { thumbUrl, ocrBlob } = await createThumbAndOcr(f);
+
+        pages.push({
+          id: uid(),
+          thumbUrl,
+          ocrBlob,
+          bad: false,
+          badReason: "",
+          warn: false,
+          warnReason: "",
+          ocrText: "",
+          ocrConfidence: null
+        });
+      }
+
+      cameraInput.value = "";
+      filesInput.value = "";
+
+      // скрываем панели при новом добавлении
+      resultBox.style.display = "none";
+      progressBox.style.display = "none";
+
+      renderCarousel();
+      updateQualityPanel();
+      showZeroHintIfNeeded();
+    }
+
+    // ---------------- Carousel render ----------------
     function renderCarousel() {
       carousel.innerHTML = "";
 
       if (pages.length === 0) {
         carouselWrap.style.display = "none";
         updateCounters();
-        showZeroHintIfNeeded();
         return;
       }
 
@@ -349,7 +363,9 @@
 
       pages.forEach((p, idx) => {
         const slide = document.createElement("div");
-        slide.className = "slide" + (p.bad ? " bad" : (p.warn ? " warn" : ""));
+        slide.className = "slide";
+        if (p.bad) slide.classList.add("bad");
+        else if (p.warn) slide.classList.add("warn");
         slide.dataset.id = p.id;
 
         const img = document.createElement("img");
@@ -379,7 +395,7 @@
 
         const badNote = document.createElement("div");
         badNote.className = "badNote";
-        badNote.textContent = p.badReason || "Страница нечитаема. Переснимите/замените для точного результата.";
+        badNote.textContent = p.badReason || "Качество распознавания низкое. Переснимите или удалите страницу.";
 
         const warnNote = document.createElement("div");
         warnNote.className = "warnNote";
@@ -394,135 +410,38 @@
       });
 
       updateCounters();
-      showZeroHintIfNeeded();
     }
 
-    function removePage(id) {
-      const i = pages.findIndex(p => p.id === id);
-      if (i >= 0) {
-        try { URL.revokeObjectURL(pages[i].thumbUrl); } catch(e) {}
-        // ocrBlob doesn't need revoke
-        pages.splice(i, 1);
-      }
+    // Точечное обновление слайда (без full rerender)
+    function updateSlideByIndex(idx) {
+      const slide = carousel.querySelectorAll(".slide")[idx];
+      if (!slide) return;
 
-      updateQualityPanel();
-      renderCarousel();
+      slide.classList.remove("bad", "warn");
+      if (pages[idx].bad) slide.classList.add("bad");
+      else if (pages[idx].warn) slide.classList.add("warn");
 
-      resultBox.style.display = "none";
-      progressBox.style.display = "none";
+      const badNote = slide.querySelector(".badNote");
+      if (badNote) badNote.textContent = pages[idx].badReason || "Качество распознавания низкое. Переснимите или удалите страницу.";
+
+      const warnNote = slide.querySelector(".warnNote");
+      if (warnNote) warnNote.textContent = pages[idx].warnReason || "Текст распознан частично. Для точности лучше переснять страницу.";
+
+      const del = slide.querySelector("button[data-del]");
+      if (del) del.disabled = isLocked;
     }
 
-    function showLimitHint() {
-      // Simple UI feedback via Telegram haptic / alert if possible; fallback to alert
-      const msg = "Для стабильной работы максимум " + MAX_PAGES + " страниц за один анализ.";
-      if (tg && tg.showPopup) {
-        try {
-          tg.showPopup({ title: "Лимит страниц", message: msg, buttons: [{type:"ok"}] });
-          return;
-        } catch(e) {}
-      }
-      alert(msg);
-    }
-
-    // ---------- Image prep: thumbUrl + ocrBlob (file removed) ----------
-    async function createThumbAndOcr(file) {
-      // Load image
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.src = url;
-
-      await new Promise((res, rej) => {
-        img.onload = () => res();
-        img.onerror = () => rej(new Error("Image load failed"));
-      });
-
-      const w = img.naturalWidth || img.width;
-      const h = img.naturalHeight || img.height;
-
-      function toJpegBlob(maxSide, quality) {
-        const scale = Math.min(1, maxSide / Math.max(w, h));
-        const nw = Math.max(1, Math.round(w * scale));
-        const nh = Math.max(1, Math.round(h * scale));
-
-        const canvas = document.createElement("canvas");
-        canvas.width = nw;
-        canvas.height = nh;
-        const ctx = canvas.getContext("2d", { alpha: false });
-        ctx.drawImage(img, 0, 0, nw, nh);
-
-        return new Promise((resolve) => {
-          canvas.toBlob((blob) => resolve(blob), "image/jpeg", quality);
-        });
-      }
-
-      const thumbBlob = await toJpegBlob(650, 0.75);
-      const ocrBlob   = await toJpegBlob(1800, 0.82);
-
-      URL.revokeObjectURL(url);
-
-      if (!thumbBlob || !ocrBlob) {
-        // Return nulls so caller can mark as bad
-        return { thumbUrl: "", ocrBlob: null };
-      }
-
-      const thumbUrl = URL.createObjectURL(thumbBlob);
-      return { thumbUrl, ocrBlob };
-    }
-
-    async function addFiles(fileList) {
-      const arr = Array.from(fileList || []);
-      if (!arr.length) return;
-
-      for (const f of arr) {
-        if (!f || !f.type || !f.type.startsWith("image/")) continue;
-        if (pages.length >= MAX_PAGES) { showLimitHint(); break; }
-
-        const { thumbUrl, ocrBlob } = await createThumbAndOcr(f);
-
-        pages.push({
-          id: uid(),
-          file: null,         // IMPORTANT: we do not store original file
-          thumbUrl: thumbUrl,
-          ocrBlob: ocrBlob,
-
-          bad: false,
-          badReason: "",
-          warn: false,
-          warnReason: "",
-
-          ocrText: "",
-          ocrConfidence: null
-        });
-      }
-
-      cameraInput.value = "";
-      filesInput.value = "";
-
-      // Hide panels on new add
-      resultBox.style.display = "none";
-      progressBox.style.display = "none";
-
-      renderCarousel();
-      updateQualityPanel();
-    }
-
-    // ---------- OCR text cleanup ----------
+    // ---------------- Quality: evaluatePageQuality (PATCH 1 integrated) ----------------
     function cleanOcrText(t) {
       let s = (t || "");
       s = s.replace(/[^\S\r\n]+/g, " ");
       s = s.replace(/\n{3,}/g, "\n\n");
       s = s.replace(/[|}{]{2,}/g, " ");
-      // keep letters/numbers/punct
       s = s.replace(/[^\p{L}\p{N}\s.,:;!?()+\-\/€$@%]/gu, "");
       s = s.replace(/\s{2,}/g, " ").trim();
       return s;
     }
 
-    function normalize(s) {
-      return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
-    }
-
-    // ---------- Page quality evaluation (Balanced) ----------
     function evaluatePageQuality(text, confidence) {
       const t = text || "";
       const textLen = t.length;
@@ -538,50 +457,124 @@
         "termin","einladung","frist","bis zum","spätestens",
         "bitte","wir bitten","sie werden gebeten",
         "unterlagen","nachweis","nachweisen","einreichen","vorlegen","mitwirkung",
-        "anhörung","aufforderung","fehlende unterlagen","formular","ausfüllen"
+        "anhörung","aufforderung","fehlende unterlagen","formular","ausfüllen",
+        // табличные/итоговые сигналы
+        "summe","euro","leistungen","regelbedarf","mehrbedarf","bedarf"
       ];
 
       const hasKeySignals = keyPatterns.some(k => low.includes(k));
 
-      // Balanced thresholds
-      const confBad = (confidence !== null && typeof confidence === "number" && confidence < 55);
-      const ratioBad = (alphaNumRatio < 0.50);
-      const tooShort = (textLen < 80);
+      const conf = (confidence !== null && typeof confidence === "number") ? confidence : null;
 
-      // WARN: short but contains key signals (do not block)
+      // Пороги (balanced)
+      const confBad = (conf !== null && conf < 50);
+      const confOk  = (conf === null || conf >= 55);
+
+      const ratioBad = (alphaNumRatio < 0.45);
+      const ratioOk  = (alphaNumRatio >= 0.55);
+
+      const tooShort = (textLen < 80);
+      const veryShort = (textLen < 35);
+
+      // 1) Совсем пусто/мусор => BAD (блок)
+      if (veryShort && (confBad || ratioBad)) {
+        return {
+          status: "bad",
+          reason: "Текста почти нет или он распознан с ошибками. Переснимите или удалите страницу.",
+          metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals }
+        };
+      }
+
+      // 2) Мало текста, но качество хорошее => WARN (НЕ блокируем)
+      if (tooShort && confOk && ratioOk) {
+        return {
+          status: "warn",
+          reason: "На странице мало текста (часть листа пустая), но распознавание хорошее. Анализ возможен. Для максимальной точности можно переснять ближе к тексту.",
+          metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals }
+        };
+      }
+
+      // 3) Мало текста + есть ключевые сигналы => WARN
       if (tooShort && hasKeySignals && !confBad && !ratioBad) {
         return {
           status: "warn",
-          reason: "Текст распознан частично, но найдены сигналы действия. Для точности лучше переснять страницу.",
-          metrics: { textLen, confidence, alphaNumRatio, hasKeySignals }
+          reason: "Текст распознан частично, но найдены сигналы. Анализ возможен, но для точности лучше переснять страницу.",
+          metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals }
         };
       }
 
-      // BAD: hard reasons (block)
-      if (confBad || ratioBad || (tooShort && !hasKeySignals)) {
-        let reason = "Страница нечитаема. Переснимите или удалите — иначе результат будет неточным.";
-
-        if (confBad && tooShort) reason = "Страница распознана плохо (мало текста и низкое качество). Переснимите или удалите.";
-        else if (confBad) reason = "Качество распознавания низкое. Переснимите или удалите.";
-        else if (ratioBad) reason = "Текст распознан с большим количеством ошибок. Переснимите или удалите.";
-        else if (tooShort && !hasKeySignals) reason = "На странице почти не удалось распознать текст. Переснимите или удалите.";
-
+      // 4) Плохая уверенность или мусор => BAD (блок)
+      if (confBad || ratioBad) {
+        let reason = "Качество распознавания низкое. Переснимите или удалите страницу.";
+        if (confBad && ratioBad) reason = "Страница распознана плохо (низкая уверенность и много мусора). Переснимите или удалите.";
         return {
           status: "bad",
           reason,
-          metrics: { textLen, confidence, alphaNumRatio, hasKeySignals }
+          metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals }
         };
       }
 
-      // OK
-      return {
-        status: "ok",
-        reason: "",
-        metrics: { textLen, confidence, alphaNumRatio, hasKeySignals }
-      };
+      // 5) Просто мало текста => WARN (не блокируем)
+      if (tooShort) {
+        return {
+          status: "warn",
+          reason: "Текста немного. Анализ возможен, но лучше добавить страницу с основной частью письма (Bitte/Frist/Termin), если она есть.",
+          metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals }
+        };
+      }
+
+      return { status: "ok", reason: "", metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals } };
     }
 
-    // ---------- OCR worker (single) ----------
+    // ---------------- Quality Panel ----------------
+    function updateQualityPanel() {
+      const bad = badIndexes();
+      const warn = warnIndexes();
+
+      // скрыть если вообще нечего показывать
+      if (bad.length === 0 && warn.length === 0) {
+        qualityGate.style.display = "none";
+        qualityText.textContent = "";
+        return;
+      }
+
+      qualityGate.style.display = "block";
+
+      // Режим BAD (жёсткий)
+      if (bad.length > 0) {
+        qualityTitle.textContent = "Обнаружены нечитаемые страницы";
+        qualityText.textContent =
+          "Нечитаемые страницы: " + bad.join(", ") + "\n" +
+          "Чтобы анализ был точным, переснимите или удалите их.";
+
+        // Кнопки
+        showBadBtn.disabled = isLocked ? true : false;
+        deleteBadBtn.disabled = isLocked ? true : false;
+
+        // Warn кнопка активна только если warn есть
+        showWarnBtn.disabled = (isLocked || warn.length === 0);
+
+        // Анализ запрещён при bad
+        analyzeBtn.disabled = true;
+        return;
+      }
+
+      // Режим WARN (мягкий)
+      qualityTitle.textContent = "Есть частично распознанные страницы";
+      qualityText.textContent =
+        "Частично распознанные страницы: " + warn.join(", ") + "\n" +
+        "Анализ возможен, но для максимальной точности лучше переснять эти страницы.";
+
+      showBadBtn.disabled = true;
+      deleteBadBtn.disabled = true;
+
+      showWarnBtn.disabled = isLocked ? true : false;
+
+      // Анализ разрешён, если не залочено и есть страницы
+      analyzeBtn.disabled = isLocked || pages.length === 0;
+    }
+
+    // ---------------- OCR: single worker ----------------
     async function getOcrWorker() {
       if (ocrWorker) return ocrWorker;
       ocrWorker = await Tesseract.createWorker("deu+rus");
@@ -590,26 +583,15 @@
 
     async function closeOcrWorker() {
       if (!ocrWorker) return;
-      try { await ocrWorker.terminate(); } catch (e) {}
+      try { await ocrWorker.terminate(); } catch(e) {}
       ocrWorker = null;
     }
 
-    // ---------- OCR one page ----------
     async function ocrOnePage(pageObj, idx, total) {
       pLine1.textContent = "Анализ идёт";
       pLine2.textContent = "Обрабатываем страницы: " + (idx + 1) + " из " + total;
 
-      if (!pageObj.ocrBlob) {
-        // Could not prepare image
-        pageObj.bad = true;
-        pageObj.badReason = "Не удалось подготовить изображение для анализа. Переснимите страницу и добавьте снова.";
-        pageObj.warn = false;
-        pageObj.warnReason = "";
-        pageObj.ocrText = "";
-        pageObj.ocrConfidence = null;
-        return;
-      }
-
+      // OCR
       const worker = await getOcrWorker();
       const { data } = await worker.recognize(pageObj.ocrBlob);
 
@@ -622,29 +604,18 @@
 
       const q = evaluatePageQuality(cleaned, confidence);
 
-      if (q.status === "bad") {
-        pageObj.bad = true;
-        pageObj.badReason = q.reason;
-        pageObj.warn = false;
-        pageObj.warnReason = "";
-      } else if (q.status === "warn") {
-        pageObj.bad = false;
-        pageObj.badReason = "";
-        pageObj.warn = true;
-        pageObj.warnReason = q.reason;
-      } else {
-        pageObj.bad = false;
-        pageObj.badReason = "";
-        pageObj.warn = false;
-        pageObj.warnReason = "";
-      }
+      pageObj.bad = (q.status === "bad");
+      pageObj.badReason = pageObj.bad ? q.reason : "";
+
+      pageObj.warn = (q.status === "warn");
+      pageObj.warnReason = pageObj.warn ? q.reason : "";
     }
 
-    // ---------- Analysis (rule-based, no “maybe”) ----------
+    // ---------------- Rule-based analysis ----------------
     function findDeadline(text) {
       const m1 = text.match(/\b(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
       if (m1) return m1[1];
-      const m2 = text.match(/\b(bis zum|spätestens am|frist|fristen|bis spätestens)\s+(\d{1,2}\.\d{1,2}\.\d{2,4})\b/i);
+      const m2 = text.match(/\b(bis zum|spätestens am|frist|fristen|bis spätestens)\s+(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
       if (m2) return m2[2];
       return "";
     }
@@ -679,7 +650,7 @@
       }
       const hasTermin = /termin|einladung|melden sie sich|vorsprechen/.test(t);
       const hasDocs = /unterlagen|nachweis|nachweisen|einreichen|vorlegen|mitwirkung|aufforderung|fehlende|ausfüllen|formular/.test(t);
-      const hasPay = /bürgergeld|zahlung|auszahlung|betrag|überweisung|monatlich/.test(t);
+      const hasPay = /bürgergeld|zahlung|auszahlung|betrag|überweisung|monatlich|leistungen|summe|euro/.test(t);
       const hasBescheid = /bescheid|änderungsbescheid|bewilligung|bewilligungsbescheid|mitteilung|veränderungsmitteilung/.test(t);
 
       if (hasTermin) return "В письме обнаружены слова, связанные с термином/встречей. Обычно это означает необходимость прийти или ответить.";
@@ -692,26 +663,19 @@
     function showResult(res, combinedText) {
       doneBanner.style.display = "block";
 
-      // WARN banner in result if exists
-      const warnPages = getWarnIndexes();
-      const warnLineNeed = warnPages.length
-        ? ("Внимание: страницы " + warnPages.join(", ") + " распознаны частично. Сигналы действия найдены. Для точности лучше переснять эти страницы.")
-        : "";
-
-      const warnLineNo = warnPages.length
-        ? ("Внимание: страницы " + warnPages.join(", ") + " распознаны частично. Если вы ожидаете запрос документов или Termin — переснимите эти страницы и повторите анализ.")
-        : "";
+      // доп. предупреждение, если warn есть
+      const warn = warnIndexes();
+      const warnLine = warn.length ? ("⚠️ Частично распознаны страницы: " + warn.join(", ") + "\n\n") : "";
 
       if (res.kind === "needAction") {
         resultTitle.textContent = "✅ Требуется действие";
-        resultSupport.textContent = (warnLineNeed ? (warnLineNeed + "\n\n") : "") +
-          "Ниже — пояснение, что именно требуется.";
+        resultSupport.textContent = "Это нормально. Ниже — пояснение, что именно требуется.";
 
         const sig = res.signals.length ? ("Найдены сигналы: " + res.signals.join(", ") + "\n") : "";
         const dl = res.deadline ? ("Срок, указанный в тексте: " + res.deadline + "\n") : "";
 
         resultDetails.textContent =
-          sig + dl +
+          warnLine + sig + dl +
           "Что сделать:\n" +
           "• проверьте, просят ли предоставить документы (Unterlagen / Nachweis),\n" +
           "• или прийти/ответить по термину (Termin / Einladung),\n" +
@@ -720,12 +684,13 @@
       }
       else if (res.kind === "noAction") {
         resultTitle.textContent = "❌ Действие не требуется";
-        resultSupport.textContent = (warnLineNo ? (warnLineNo + "\n\n") : "") +
+        resultSupport.textContent =
           "В распознанном тексте не обнаружены просьбы: прислать документы, ответить или прийти в термин.";
 
         resultDetails.textContent =
+          warnLine +
           "Что это значит:\n" +
-          "• письмо выглядит как информационное уведомление (без обязательных действий).\n" +
+          "• письмо похоже на информационное уведомление (без обязательных действий).\n" +
           "• если вы ожидаете запрос документов или приглашение — проверьте, не пропущена ли какая-то страница.\n";
       }
       else {
@@ -734,6 +699,7 @@
           "Текст распознан частично или отсутствуют ключевые фразы. Добавьте/переснимите страницу с основной частью письма.";
 
         resultDetails.textContent =
+          warnLine +
           "Как исправить:\n" +
           "• снимите страницу ближе (текст должен занимать 70–90% кадра)\n" +
           "• уберите блики/тени\n" +
@@ -745,70 +711,7 @@
       resultBox.style.display = "block";
     }
 
-    // ---------- Quality panel (bad blocks, warn informs) ----------
-    function updateQualityPanel() {
-      const badIdx = getBadIndexes();
-      const warnIdx = getWarnIndexes();
-
-      // Buttons state
-      showBadBtn.disabled = badIdx.length === 0;
-      deleteBadBtn.disabled = isLocked || badIdx.length === 0;
-      showWarnBtn.disabled = warnIdx.length === 0;
-
-      if (badIdx.length === 0 && warnIdx.length === 0) {
-        qualityGate.style.display = "none";
-        qualityText.textContent = "";
-        analyzeBtn.disabled = isLocked || pages.length === 0;
-        return;
-      }
-
-      qualityGate.style.display = "block";
-
-      if (badIdx.length > 0) {
-        // HARD mode: block analysis
-        qualityTitle.textContent = "Обнаружены нечитаемые страницы";
-        qualityText.textContent =
-          "Нечитаемые страницы: " + badIdx.join(", ") + "\n" +
-          "Чтобы анализ был точным, переснимите или удалите их.";
-
-        qualityNote.textContent =
-          "Переснимите/замените отмеченные страницы и повторите анализ. Это нужно, чтобы результат был точным и полным.";
-
-        analyzeBtn.disabled = true;
-      } else {
-        // SOFT mode: warn only, analysis allowed
-        qualityTitle.textContent = "Есть частично распознанные страницы";
-        qualityText.textContent =
-          "Страницы: " + warnIdx.join(", ") + "\n" +
-          "Анализ возможен. Для точности лучше переснять эти страницы.";
-
-        qualityNote.textContent =
-          "Это не блокирует анализ. Если результат важен — переснимите страницы с предупреждением.";
-
-        analyzeBtn.disabled = isLocked || pages.length === 0;
-      }
-    }
-
-    // Buttons: show / delete bad, show warn
-    showBadBtn.addEventListener("click", () => {
-      const i = firstBadIndex();
-      if (i >= 0) scrollToPage(i);
-    });
-
-    deleteBadBtn.addEventListener("click", () => {
-      if (isLocked) return;
-      const toRemove = pages.filter(p => p.bad).map(p => p.id);
-      toRemove.forEach(id => removePage(id));
-      updateQualityPanel();
-      renderCarousel();
-    });
-
-    showWarnBtn.addEventListener("click", () => {
-      const i = firstWarnIndex();
-      if (i >= 0) scrollToPage(i);
-    });
-
-    // ---------- Events ----------
+    // ---------------- Events ----------------
     cameraBtn.addEventListener("click", () => {
       if (isLocked) return;
       cameraInput.click();
@@ -831,41 +734,62 @@
 
     carousel.addEventListener("scroll", () => updateCounters());
 
+    showBadBtn.addEventListener("click", () => {
+      const i = firstBadIndex();
+      if (i >= 0) scrollToPage(i);
+    });
+
+    showWarnBtn.addEventListener("click", () => {
+      const i = firstWarnIndex();
+      if (i >= 0) scrollToPage(i);
+    });
+
+    deleteBadBtn.addEventListener("click", () => {
+      if (isLocked) return;
+      const toRemove = pages.filter(p => p.bad).map(p => p.id);
+      toRemove.forEach(id => removePage(id));
+      updateQualityPanel();
+      renderCarousel();
+    });
+
     analyzeBtn.addEventListener("click", async () => {
       if (isLocked) return;
       if (pages.length === 0) { showZeroHintIfNeeded(); return; }
-      if (hasBadPages()) { updateQualityPanel(); return; }
 
-      // Start analysis
+      // BAD => блокируем анализ
+      if (hasBadPages()) {
+        updateQualityPanel();
+        return;
+      }
+
+      // старт анализа
       setLocked(true);
       resultBox.style.display = "none";
       doneBanner.style.display = "none";
-
       progressBox.style.display = "block";
       pLine1.textContent = "Анализ идёт";
       pLine2.textContent = "Контролируем содержание письма";
 
       try {
-        // OCR all pages (sequential)
+        // OCR по всем страницам (без полного rerender)
         for (let i = 0; i < pages.length; i++) {
           await ocrOnePage(pages[i], i, pages.length);
-
-          // Update only one slide (no heavy rerender)
           updateSlideByIndex(i);
           updateCounters();
-
-          // Update quality panel state progressively
-          updateQualityPanel();
-
-          // Give UI a frame
-          await nextFrame();
+          await nextFrame(); // yield (UI не фризит)
         }
 
-        // After OCR: if bad pages exist => gate A blocks
+        // Обновляем панель качества
         updateQualityPanel();
+
+        // Если появились BAD — стоп (PATCH 2: после unlock обновить панель)
         if (hasBadPages()) {
           progressBox.style.display = "none";
           setLocked(false);
+
+          // PATCH 2: важно обновить disabled-состояние кнопок после unlock
+          updateQualityPanel();
+
           showZeroHintIfNeeded();
 
           const i = firstBadIndex();
@@ -875,7 +799,7 @@
           return;
         }
 
-        // Pre-result
+        // Продолжаем анализ (rule-based)
         pLine1.textContent = "Анализ идёт";
         pLine2.textContent = "Проверяем, требуется ли от вас действие";
         await nextFrame();
@@ -886,7 +810,6 @@
 
         const res = analyzeText(combinedText);
 
-        // Finish
         pLine1.textContent = "Анализ завершён";
         pLine2.textContent = "Ниже — результат проверки письма";
 
@@ -895,7 +818,7 @@
           progressBox.style.display = "none";
           setLocked(false);
           showZeroHintIfNeeded();
-
+          updateQualityPanel();
           await closeOcrWorker();
         }, 250);
 
@@ -903,20 +826,20 @@
         progressBox.style.display = "none";
         setLocked(false);
         showZeroHintIfNeeded();
+        updateQualityPanel();
+        await closeOcrWorker();
 
         resultBox.style.display = "block";
         doneBanner.style.display = "none";
 
         resultTitle.textContent = "⚠️ Не удалось завершить анализ";
-        resultSupport.textContent = "Переснимите страницы ближе и попробуйте ещё раз.";
+        resultSupport.textContent = "Это нормально. Переснимите страницы ближе и попробуйте ещё раз.";
         resultDetails.textContent =
           "Рекомендации:\n" +
           "• текст должен занимать 70–90% кадра\n" +
           "• без бликов и теней\n" +
-          "• добавьте страницы с Bitte / Frist / Termin, если они есть\n";
+          "• переснимите страницы, которые могут быть нечитаемыми\n";
         aboutText.textContent = "—";
-
-        await closeOcrWorker();
       }
     });
 
