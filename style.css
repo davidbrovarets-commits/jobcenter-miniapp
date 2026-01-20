@@ -33,9 +33,7 @@ body{
   padding: 20px 16px 40px;
 }
 
-.header{
-  padding: 10px 0 14px;
-}
+.header{ padding: 10px 0 14px; }
 
 .badge{
   display: inline-block;
@@ -149,7 +147,6 @@ h1{
 
 /* Carousel */
 .carouselWrap{ margin-top:12px; display:none; }
-
 .carouselHeader{
   display:flex;
   justify-content:space-between;
@@ -293,59 +290,8 @@ h1{
 }
 
 .panelActions .btn{
-  flex:1 1 220px;
+  flex:1;
   min-width:220px;
-}
-
-@media (max-width:520px){
-  .panelActions .btn{
-    flex:1 1 100%;
-    min-width:100%;
-  }
-}
-
-/* Bad / Warn page list */
-.pageList{
-  margin-top:10px;
-  display:none;
-  gap:8px;
-  flex-direction:column;
-}
-
-.pageListRow{
-  display:flex;
-  align-items:flex-start;
-  gap:10px;
-  padding:10px 12px;
-  border-radius:12px;
-  border: 1px solid var(--line);
-  background: rgba(255,255,255,0.04);
-}
-
-.pageTag{
-  flex:0 0 auto;
-  padding:4px 8px;
-  border-radius:999px;
-  font-size:12px;
-  font-weight:800;
-  border:1px solid var(--line);
-  background: rgba(255,255,255,0.06);
-  line-height:1;
-  margin-top:2px;
-}
-
-.pageTag.bad{ border-color: var(--bad); background: rgba(255,0,0,0.12); }
-.pageTag.warn{ border-color: var(--warn); background: rgba(255,165,0,0.12); }
-
-.pageListText{
-  color: var(--muted);
-  font-size:13px;
-  line-height:1.35;
-}
-
-.pageListText b{
-  color: var(--text);
-  font-weight:900;
 }
 
 .sectionDivider{
@@ -359,16 +305,58 @@ h1{
   margin-bottom:10px;
 }
 
-.doneTitle{
-  font-weight:900;
-  font-size: 16px;
-}
-
+.doneTitle{ font-weight:900; font-size: 16px; }
 .doneSub{
   opacity:0.95;
   margin-top:2px;
   color: var(--muted);
 }
+
+/* BAD/WARN list under panel */
+.pageList{
+  display:none;
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid var(--line);
+  flex-direction:column;
+  gap:10px;
+}
+
+.pageListRow{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+}
+
+.pageTag{
+  flex:0 0 auto;
+  min-width:56px;
+  text-align:center;
+  border-radius:999px;
+  padding:4px 10px;
+  font-size:12px;
+  font-weight:900;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,0.06);
+}
+
+.pageTag.bad{
+  border-color: var(--bad);
+  background: rgba(255,0,0,0.10);
+}
+
+.pageTag.warn{
+  border-color: var(--warn);
+  background: rgba(255,165,0,0.10);
+}
+
+.pageListText{
+  font-size:13px;
+  line-height:1.35;
+  color: var(--muted);
+}
+
+.pageListText b{ color: var(--text); }
 
 /* Footer */
 .version{
