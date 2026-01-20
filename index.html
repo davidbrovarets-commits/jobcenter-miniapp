@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Jobcenter Letter Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css?v=200" />
+  <link rel="stylesheet" href="./style.css?v=210" />
 </head>
 
 <body>
@@ -116,30 +116,27 @@
         </div>
       </div>
 
-      <small class="version">
-        v2.0 · modular split · main.js orchestrator
-      </small>
+      <small class="version">v2.10 · modular · stable script order</small>
     </div>
   </div>
 
   <!-- 1) Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- 2) Tesseract.js -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=200"></script>
+  <!-- 2) Tesseract.js (must be BEFORE ocr.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=210"></script>
 
-  <!-- 3) Your modules (order matters) -->
-  <!-- Если у тебя названия чуть другие — оставь порядок, но подставь свои имена -->
-  <script src="./config.js?v=200"></script>
-  <script src="./state.js?v=200"></script>
-  <script src="./dom.js?v=200"></script>
-  <script src="./ui-carousel.js?v=200"></script>
-  <script src="./ui-quality.js?v=200"></script>
-  <script src="./image-pipeline.js?v=200"></script>
-  <script src="./ocr.js?v=200"></script>
-  <script src="./analysis.js?v=200"></script>
+  <!-- 3) App modules (order matters) -->
+  <script src="./config.js?v=210"></script>
+  <script src="./state.js?v=210"></script>
+  <script src="./dom.js?v=210"></script>
+  <script src="./ui-carousel.js?v=210"></script>
+  <script src="./ui-quality.js?v=210"></script>
+  <script src="./image-pipeline.js?v=210"></script>
+  <script src="./ocr.js?v=210"></script>
+  <script src="./analysis.js?v=210"></script>
 
-  <!-- 4) Orchestrator -->
-  <script src="./main.js?v=200"></script>
+  <!-- 4) Orchestrator (last) -->
+  <script src="./main.js?v=210"></script>
 </body>
 </html>
