@@ -214,6 +214,58 @@ try {
 } catch (_) {}
 
 /* ===========================
+   TIMEOUT HELPER
+=========================== */
+function withTimeout(promise, ms, label) {
+  let t;
+  const timeout = new Promise((_, rej) => {
+    t = setTimeout(() => rej(new Error(`TIMEOUT: ${label} (${ms}ms)`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
+}
+
+/* ===========================
+   UI FAIL (safe)
+   Показывает ошибку прямо в интерфейсе
+=========================== */
+function uiFail(msg, err) {
+  console.error(msg, err || "");
+
+  // Не падаем, если элементы ещё не готовы
+  try {
+    setProgress(0, msg);
+  } catch (_) {}
+
+  try {
+    if (typeof el !== "undefined" && el.debugBox) {
+      el.debugBox.hidden = false;
+      el.debugBox.textContent = `${msg}\n\n${(err && err.message) ? err.message : (err || "")}`.trim();
+    } else {
+      // запасной канал
+      alert(msg);
+    }
+  } catch (_) {
+    // последний запасной канал
+    alert(msg);
+  }
+
+try { state.analyzing = false; } catch (_) {}
+try { setLocked(false); } catch (_) {}
+
+}
+
+/* ===========================
+   HARD CHECK: Tesseract loaded?
+   (Важно: AFTER uiFail is defined)
+=========================== */
+if (!window.Tesseract) {
+  uiFail(
+    "Tesseract.js не загрузился. CDN блокируется или нет интернета в Telegram WebView.",
+    ""
+  );
+}
+
+/* ===========================
    UTIL: UI LOCK
 =========================== */
 function setLocked(v) {
@@ -1041,4 +1093,5 @@ setProgress(0, '—');
 </script>
 </body>
 </html>
+
 
