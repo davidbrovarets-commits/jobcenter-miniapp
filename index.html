@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <title>Jobcenter Letter Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
+  <!-- cache-bust -->
+  <link rel="stylesheet" href="style.css?v=19" />
 </head>
 
 <body>
@@ -69,7 +70,6 @@
           Частично распознанные страницы анализ не блокируют, но могут снижать точность.
         </div>
 
-        <!-- Список bad/warn страниц -->
         <div id="qualityList" class="pageList"></div>
       </div>
 
@@ -118,15 +118,15 @@
       </div>
 
       <small class="version">
-        v1.8 · iOS fix: progress+fast deu + auto deu+rus · +delete current bad · +bad/warn list · thumbnails+ocrBlob · warn/bad · quality panel · single worker · yield · no full rerender · max 15
+        v1.9 · iOS fix: cache-bust + explicit worker/core/lang paths + progress · fast deu + auto deu+rus · +delete current bad · +bad/warn list · max 15
       </small>
     </div>
   </div>
 
   <!-- Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Tesseract.js -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- Tesseract.js (cache-bust) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=19"></script>
 
   <script>
     // ---------------- Telegram init (safe) ----------------
@@ -140,6 +140,11 @@
     // OCR modes
     const OCR_LANG_FAST = "deu";
     const OCR_LANG_FULL = "deu+rus";
+
+    // IMPORTANT: explicit paths (often fixes Telegram iOS "stuck on 1/x")
+    const TESS_WORKER_PATH = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js";
+    const TESS_CORE_PATH   = "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js";
+    const TESS_LANG_PATH   = "https://tessdata.projectnaptha.com/4.0.0";
 
     // ---------------- DOM ----------------
     const cameraBtn = document.getElementById("cameraBtn");
@@ -177,11 +182,9 @@
     const aboutText = document.getElementById("aboutText");
 
     // ---------------- State ----------------
-    // page: { id, thumbUrl, ocrBlob, status:'ok'|'warn'|'bad', reason:'', ocrText:'', ocrConfidence:null, metrics:{} }
     const pages = [];
     let isLocked = false;
 
-    // single OCR worker
     let ocrWorker = null;
     let ocrLangInited = null;
 
@@ -223,16 +226,13 @@
       cameraBtn.disabled = v;
       filesBtn.disabled  = v;
 
-      // delete buttons in slides
       carousel.querySelectorAll("button[data-del]").forEach(btn => btn.disabled = v);
 
-      // quality panel buttons
       showBadBtn.disabled = v;
       deleteCurrentBadBtn.disabled = v;
       deleteBadBtn.disabled = v;
       showWarnBtn.disabled = v;
 
-      // analyze: only if not locked, there are pages, and there are NO bad pages
       analyzeBtn.disabled = v || pages.length === 0 || hasBadPages();
     }
 
@@ -360,14 +360,12 @@
     // ---------------- Quality List ----------------
     function renderQualityList() {
       if (!qualityList) return;
-
       qualityList.style.display = "none";
       qualityList.innerHTML = "";
 
       if (pages.length === 0) return;
 
       const rows = [];
-
       pages.forEach((p, i) => {
         if (p.status !== "bad" && p.status !== "warn") return;
 
@@ -386,18 +384,14 @@
         `);
       });
 
-      if (rows.length === 0) return;
-
+      if (!rows.length) return;
       qualityList.innerHTML = rows.join("");
       qualityList.style.display = "flex";
     }
 
-    // ---------------- Quality Panel (BAD/WARN) ----------------
+    // ---------------- Quality Panel ----------------
     function updateQualityPanel() {
-      // hide by default
       qualityPanel.style.display = "none";
-
-      // always refresh list (it will hide itself if no rows)
       renderQualityList();
 
       if (pages.length === 0) return;
@@ -405,7 +399,6 @@
       const bad = badIndexes();
       const warn = warnIndexes();
 
-      // 1) BAD present => show BAD panel, block analyze
       if (bad.length > 0) {
         qualityPanel.style.display = "block";
         qualityTitle.textContent = "Обнаружены нечитаемые страницы";
@@ -418,17 +411,10 @@
         deleteBadBtn.style.display = "inline-flex";
         showWarnBtn.style.display = (warn.length > 0) ? "inline-flex" : "none";
 
-        // lock-aware enabling
-        showBadBtn.disabled = isLocked;
-        deleteCurrentBadBtn.disabled = isLocked;
-        deleteBadBtn.disabled = isLocked;
-        showWarnBtn.disabled = isLocked;
-
-        analyzeBtn.disabled = true; // блокируем при bad
+        analyzeBtn.disabled = true;
         return;
       }
 
-      // 2) No BAD, but WARN => show WARN panel (not blocking)
       if (warn.length > 0) {
         qualityPanel.style.display = "block";
         qualityTitle.textContent = "Есть частично распознанные страницы";
@@ -441,13 +427,10 @@
         deleteBadBtn.style.display = "none";
         showWarnBtn.style.display = "inline-flex";
 
-        showWarnBtn.disabled = isLocked;
-
-        analyzeBtn.disabled = isLocked || pages.length === 0; // warn не блокирует
+        analyzeBtn.disabled = isLocked || pages.length === 0;
         return;
       }
 
-      // 3) No issues => panel hidden
       analyzeBtn.disabled = isLocked || pages.length === 0;
     }
 
@@ -463,12 +446,11 @@
 
     deleteCurrentBadBtn.addEventListener("click", () => {
       if (isLocked) return;
-      if (pages.length === 0) return;
+      if (!pages.length) return;
 
       const current = getVisibleIndex();
       if (current >= 0 && current < pages.length && pages[current].status === "bad") {
-        const id = pages[current].id;
-        removePage(id);
+        removePage(pages[current].id);
         updateQualityPanel();
         renderCarousel();
         return;
@@ -477,8 +459,7 @@
       const fb = firstBadIndex();
       if (fb >= 0) {
         scrollToPage(fb);
-        const id = pages[fb].id;
-        removePage(id);
+        removePage(pages[fb].id);
         updateQualityPanel();
         renderCarousel();
       }
@@ -487,17 +468,15 @@
     deleteBadBtn.addEventListener("click", () => {
       if (isLocked) return;
       const ids = pages.filter(p => p.status === "bad").map(p => p.id);
-      ids.forEach(id => removePage(id));
+      ids.forEach(removePage);
       updateQualityPanel();
       renderCarousel();
     });
 
-    // ---------------- Remove page ----------------
     function removePage(id) {
       const i = pages.findIndex(p => p.id === id);
       if (i >= 0) {
         try { URL.revokeObjectURL(pages[i].thumbUrl); } catch(e) {}
-        // ocrBlob освобождает GC
         pages.splice(i, 1);
       }
       resultBox.style.display = "none";
@@ -509,7 +488,7 @@
       showZeroHintIfNeeded();
     }
 
-    // ---------------- Image -> Blobs (thumb + ocrBlob) ----------------
+    // ---------------- Image -> Blobs ----------------
     async function loadImageFromFile(file) {
       const url = URL.createObjectURL(file);
       try {
@@ -551,7 +530,7 @@
       const { img, url } = await loadImageFromFile(file);
       try {
         const thumbBlob = await renderJpegBlob(img, 650, 0.75);
-        const ocrBlob   = await renderJpegBlob(img, 1800, 0.82);
+        const ocrBlob   = await renderJpegBlob(img, 1600, 0.82); // чуть легче для iOS
 
         const thumbUrl = URL.createObjectURL(thumbBlob);
         return { thumbUrl, ocrBlob };
@@ -564,7 +543,6 @@
       const arr = Array.from(fileList || []).filter(f => f && f.type && f.type.startsWith("image/"));
       if (!arr.length) return;
 
-      // limit
       const free = MAX_PAGES - pages.length;
       if (free <= 0) {
         showLimitHint(true);
@@ -574,13 +552,11 @@
       const slice = arr.slice(0, free);
       showLimitHint(arr.length > free);
 
-      // reset result/panels when adding new files
       resultBox.style.display = "none";
       progressBox.style.display = "none";
 
       for (const f of slice) {
         const { thumbUrl, ocrBlob } = await createThumbAndOcr(f);
-
         pages.push({
           id: uid(),
           thumbUrl,
@@ -601,31 +577,40 @@
       showZeroHintIfNeeded();
     }
 
-    // ---------------- OCR worker (with progress + fast lang) ----------------
+    // ---------------- OCR worker ----------------
     async function getOcrWorker(lang) {
       if (!lang) lang = OCR_LANG_FAST;
 
+      // покажем текст ДО тяжёлых await (если это не видно — значит у тебя не обновился файл)
+      pLine1.textContent = "Подготовка OCR";
+      pLine2.textContent = "Загружаем OCR-модуль (первый запуск может занять 1–3 минуты на iPhone)";
+
       if (!ocrWorker) {
-        ocrWorker = await Tesseract.createWorker({
+        ocrWorker = await Tesseract.createWorker(lang, 1, {
           logger: (m) => {
             const pct = (typeof m.progress === "number") ? Math.round(m.progress * 100) : null;
             pLine1.textContent = "Анализ идёт";
             pLine2.textContent = (pct !== null)
               ? `${m.status}: ${pct}%`
               : `${m.status}`;
-          }
+          },
+          workerPath: TESS_WORKER_PATH,
+          corePath: TESS_CORE_PATH,
+          langPath: TESS_LANG_PATH
         });
+        ocrLangInited = lang;
+        return ocrWorker;
       }
 
       if (ocrLangInited === lang) return ocrWorker;
 
       pLine1.textContent = "Подготовка OCR";
-      pLine2.textContent = "Загружаем языки (первый запуск может занять время)";
+      pLine2.textContent = "Подключаем язык: " + lang;
 
       await ocrWorker.loadLanguage(lang);
       await ocrWorker.initialize(lang);
-
       ocrLangInited = lang;
+
       return ocrWorker;
     }
 
@@ -636,7 +621,6 @@
       ocrLangInited = null;
     }
 
-    // ---------------- OCR cleaning ----------------
     function cleanOcrText(t) {
       let s = (t || "");
       s = s.replace(/[^\S\r\n]+/g, " ");
@@ -647,7 +631,6 @@
       return s;
     }
 
-    // ---------------- Patch 1: Balanced quality evaluation ----------------
     function evaluatePageQuality(text, confidence) {
       const t = text || "";
       const textLen = t.length;
@@ -670,7 +653,6 @@
       const hasKeySignals = keyPatterns.some(k => low.includes(k));
 
       const conf = (confidence !== null && typeof confidence === "number") ? confidence : null;
-
       const confBad = (conf !== null && conf < 50);
       const confOk  = (conf === null || conf >= 55);
 
@@ -681,56 +663,33 @@
       const veryShort = (textLen < 35);
 
       if (veryShort && (confBad || ratioBad)) {
-        return {
-          status: "bad",
-          reason: "Текста почти нет или он распознан с ошибками. Переснимите или удалите страницу.",
-          metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals }
-        };
+        return { status: "bad", reason: "Текста почти нет или он распознан с ошибками. Переснимите или удалите страницу." };
       }
 
       if (tooShort && confOk && ratioOk) {
-        return {
-          status: "warn",
-          reason: "На странице мало текста (часть листа пустая), но распознавание хорошее. Анализ возможен. Для максимальной точности можно переснять ближе к тексту.",
-          metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals }
-        };
+        return { status: "warn", reason: "На странице мало текста (часть листа пустая), но распознавание хорошее. Анализ возможен. Для максимальной точности можно переснять ближе к тексту." };
       }
 
       if (tooShort && hasKeySignals && !confBad && !ratioBad) {
-        return {
-          status: "warn",
-          reason: "Текст распознан частично, но найдены сигналы. Анализ возможен, но для точности лучше переснять страницу.",
-          metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals }
-        };
+        return { status: "warn", reason: "Текст распознан частично, но найдены сигналы. Анализ возможен, но для точности лучше переснять страницу." };
       }
 
       if (confBad || ratioBad) {
-        let reason = "Качество распознавания низкое. Переснимите или удалите страницу.";
-        if (confBad && ratioBad) reason = "Страница распознана плохо (низкая уверенность и много мусора). Переснимите или удалите.";
-        return {
-          status: "bad",
-          reason,
-          metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals }
-        };
+        return { status: "bad", reason: "Качество распознавания низкое. Переснимите или удалите страницу." };
       }
 
       if (tooShort) {
-        return {
-          status: "warn",
-          reason: "Текста немного. Анализ возможен, но лучше добавить страницу с основной частью письма (Bitte/Frist/Termin), если она есть.",
-          metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals }
-        };
+        return { status: "warn", reason: "Текста немного. Анализ возможен, но лучше добавить страницу с основной частью письма (Bitte/Frist/Termin), если она есть." };
       }
 
-      return { status: "ok", reason: "", metrics: { textLen, confidence: conf, alphaNumRatio, hasKeySignals } };
+      return { status: "ok", reason: "" };
     }
 
-    // ---------------- OCR per page (FAST deu, switch to deu+rus only if needed) ----------------
     async function ocrOnePage(pageObj, idx, total) {
       pLine1.textContent = "Анализ идёт";
       pLine2.textContent = "Обрабатываем страницы: " + (idx + 1) + " из " + total;
 
-      // 1) fast OCR: deu
+      // fast OCR: deu
       let worker = await getOcrWorker(OCR_LANG_FAST);
       const r1 = await worker.recognize(pageObj.ocrBlob);
 
@@ -743,14 +702,12 @@
       let cleaned = cleaned1;
       let conf = conf1;
 
-      // 2) switch to full only if кириллица реально есть
       if (hasCyr) {
         pLine1.textContent = "Анализ идёт";
         pLine2.textContent = "Обнаружена кириллица → включаем RU (может занять время)";
-
         worker = await getOcrWorker(OCR_LANG_FULL);
-        const r2 = await worker.recognize(pageObj.ocrBlob);
 
+        const r2 = await worker.recognize(pageObj.ocrBlob);
         const rawText2 = (r2.data && r2.data.text) ? r2.data.text : "";
         cleaned = cleanOcrText(rawText2);
         conf = (r2.data && typeof r2.data.confidence === "number") ? r2.data.confidence : conf1;
@@ -762,10 +719,8 @@
       const q = evaluatePageQuality(cleaned, conf);
       pageObj.status = q.status;
       pageObj.reason = q.reason || "";
-      pageObj.metrics = q.metrics || {};
     }
 
-    // ---------------- Analysis (rule-based, без "возможно/похоже") ----------------
     function findDeadline(text) {
       const m1 = text.match(/\b(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
       if (m1) return m1[1];
@@ -886,7 +841,6 @@
       if (pages.length === 0) { showZeroHintIfNeeded(); return; }
       if (hasBadPages()) { updateQualityPanel(); return; }
 
-      // start
       setLocked(true);
       updateQualityPanel();
 
@@ -898,7 +852,6 @@
       pLine2.textContent = "Подготовка OCR (первый запуск может занять время)";
 
       try {
-        // OCR sequential + yield + no full rerender
         for (let i = 0; i < pages.length; i++) {
           await ocrOnePage(pages[i], i, pages.length);
           updateSlideByIndex(i);
@@ -906,10 +859,8 @@
           await nextFrame();
         }
 
-        // Update quality panel after OCR
         updateQualityPanel();
 
-        // If BAD appeared -> stop (Patch 2: ensure panel/buttons updated after unlock)
         if (hasBadPages()) {
           progressBox.style.display = "none";
           setLocked(false);
@@ -923,7 +874,6 @@
           return;
         }
 
-        // combine text
         pLine1.textContent = "Анализ идёт";
         pLine2.textContent = "Проверяем, требуется ли от вас действие";
 
@@ -953,7 +903,7 @@
         resultBox.style.display = "block";
         doneBanner.style.display = "none";
         resultTitle.textContent = "⚠️ Не удалось завершить анализ";
-        resultSupport.textContent = "Это нормально. Переснимите страницы ближе и попробуйте ещё раз.";
+        resultSupport.textContent = "Переснимите страницы ближе и попробуйте ещё раз.";
         resultDetails.textContent =
           "Рекомендации:\n" +
           "• текст должен занимать 70–90% кадра\n" +
