@@ -11,196 +11,73 @@
   <script src="https://telegram.org/js/telegram-web-app.js?v=1"></script>
 
   <!-- Tesseract v5 -->
- <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=5"></script>
 
-<script>
-  window.TESSERACT_CFG = {
-    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
-    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js",
-    langPath: "https://tessdata.projectnaptha.com/4.0.0"
-  };
-</script>
-
+  <!-- Tesseract explicit paths (CRITICAL for Telegram iOS) -->
+  <script>
+    window.TESSERACT_CFG = {
+      workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
+      corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js",
+      langPath: "https://tessdata.projectnaptha.com/4.0.0"
+    };
+  </script>
 </head>
 
 <body>
-  <div class="app">
-    <header class="topbar">
-      <div class="titles">
-        <h1>Проверка письма Jobcenter</h1>
-        <p class="subtitle">Определяем, требуется ли действие и есть ли дедлайн. (MVP)</p>
-      </div>
+<div class="app">
 
-      <div class="counters">
-        <div class="chip" id="addedCounter">Добавлено: 0</div>
-        <div class="chip" id="pageCounter">Страница 0/0</div>
-      </div>
-    </header>
+  <h1>Проверка письма Jobcenter</h1>
+  <p class="subtitle">Определяем, требуется ли действие и есть ли дедлайн (MVP)</p>
 
-    <section class="card">
-      <div class="row">
-        <label class="btn">
-          <input id="fileInput" type="file" accept="image/*" multiple />
-          <span>Добавить страницы (до 15)</span>
-        </label>
+  <div class="controls">
+    <label class="btn">
+      <input id="fileInput" type="file" accept="image/*" multiple hidden />
+      Добавить страницы
+    </label>
 
-        <button class="btn secondary" id="btnClear" type="button">Очистить</button>
-      </div>
+    <label>
+      <input type="checkbox" id="toggleDeRu" />
+      OCR: DE + RU (медленнее)
+    </label>
 
-      <div class="row">
-        <div class="toggle">
-          <input type="checkbox" id="toggleDeRu" />
-          <label for="toggleDeRu">OCR: DE + RU (медленнее)</label>
-        </div>
-
-        <div class="toggle">
-          <input type="checkbox" id="toggleShowDebug" />
-          <label for="toggleShowDebug">Показать debug (inkRatio/этапы)</label>
-        </div>
-      </div>
-
-      <div class="hint">
-        <b>Правила качества:</b> <span class="ok">OK</span> / <span class="warn">WARN</span> / <span class="bad">BAD</span>.<br>
-        <span class="bad">BAD</span> блокирует анализ — сначала исправь/удали нечитаемые.
-      </div>
-    </section>
-
-    <section class="carouselWrap">
-      <div class="carousel">
-        <button class="navBtn" id="btnPrev" type="button">‹</button>
-
-        <div class="slide" id="slide">
-          <div class="slideTop">
-            <div class="badge" id="qualityBadge">—</div>
-
-            <button class="iconBtn danger" id="btnDeleteCurrent" type="button" title="Удалить текущую страницу">✕</button>
-          </div>
-
-          <div class="imgBox">
-            <img id="slideImg" alt="preview" />
-          </div>
-
-          <div class="progressBox">
-            <div class="progressLine">
-              <div class="progressBar" id="progressBar"></div>
-            </div>
-            <div class="progressText" id="progressText">—</div>
-          </div>
-
-          <div class="debug" id="debugBox" hidden></div>
-        </div>
-
-        <button class="navBtn" id="btnNext" type="button">›</button>
-      </div>
-
-      <div class="thumbs" id="thumbs"></div>
-    </section>
-
-    <section class="card actions">
-      <button class="btn primary" id="btnAnalyze" type="button">Готово → Анализ</button>
-      <button class="btn secondary" id="btnResetResults" type="button">Сбросить результат</button>
-    </section>
-
-    <section class="card qualityPanel" id="qualityPanel" hidden>
-      <h3>Проблемы качества</h3>
-
-      <div class="row wrap">
-        <button class="btn secondary" id="btnShowBad" type="button">Показать нечитаемые</button>
-        <button class="btn danger" id="btnDeleteBad" type="button">Удалить нечитаемые</button>
-        <button class="btn danger" id="btnDeleteCurrentBad" type="button">Удалить текущую bad страницу</button>
-        <button class="btn secondary" id="btnShowWarn" type="button">Показать частично распознанные</button>
-      </div>
-
-      <div class="lists">
-        <div class="listCol">
-          <div class="listTitle">BAD (блокируют анализ)</div>
-          <pre class="listBox" id="badList">—</pre>
-        </div>
-
-        <div class="listCol">
-          <div class="listTitle">WARN (не блокируют)</div>
-          <pre class="listBox" id="warnList">—</pre>
-        </div>
-      </div>
-
-      <div class="hint small">
-        Подсказка: сначала удаляй/переснимай <span class="bad">BAD</span>. <span class="warn">WARN</span> можно оставить, но лучше улучшить.
-      </div>
-    </section>
-
-    <section class="card result" id="resultCard" hidden>
-      <h3>Результат</h3>
-      <div class="resultLine">
-        <div class="resultBadge" id="resultBadge">—</div>
-        <div class="resultText" id="resultText">—</div>
-      </div>
-      <div class="resultMeta" id="resultMeta">—</div>
-      <div class="signals">
-        <div class="signalsTitle">Сигналы/ключевые фразы</div>
-        <pre class="signalsBox" id="signalsBox">—</pre>
-      </div>
-    </section>
-
-    <footer class="footer">
-      <div class="muted">Это не юридическая консультация. MVP анализирует только признаки действий/дедлайнов по тексту.</div>
-    </footer>
+    <label>
+      <input type="checkbox" id="toggleShowDebug" checked />
+      Показать debug
+    </label>
   </div>
+
+  <div id="progressText">—</div>
+  <div class="progressLine"><div id="progressBar"></div></div>
+
+  <img id="slideImg" style="max-width:100%; margin-top:10px;" />
+
+  <button class="btn primary" id="btnAnalyze">Готово → Анализ</button>
+
+  <pre id="debugBox" style="margin-top:10px; white-space:pre-wrap;"></pre>
+
+</div>
 
 <script>
 /* ===========================
-   APP STATE
+   STATE
 =========================== */
-const MAX_PAGES = 15;
-
 const state = {
-  pages: [], // {id, thumbUrl, ocrBlob, quality, reason, inkRatio, microText, fullText, conf, importantSignals, stage}
-  currentIndex: -1,
-  locked: false,
   worker: null,
   analyzing: false,
-  stopDueToBad: false,
+  locked: false
 };
 
 /* ===========================
    DOM
 =========================== */
 const el = {
-  fileInput: document.getElementById('fileInput'),
-  btnClear: document.getElementById('btnClear'),
-  btnPrev: document.getElementById('btnPrev'),
-  btnNext: document.getElementById('btnNext'),
-  btnDeleteCurrent: document.getElementById('btnDeleteCurrent'),
-  btnAnalyze: document.getElementById('btnAnalyze'),
-  btnResetResults: document.getElementById('btnResetResults'),
-
-  toggleDeRu: document.getElementById('toggleDeRu'),
-  toggleShowDebug: document.getElementById('toggleShowDebug'),
-
-  addedCounter: document.getElementById('addedCounter'),
-  pageCounter: document.getElementById('pageCounter'),
-
-  slideImg: document.getElementById('slideImg'),
-  qualityBadge: document.getElementById('qualityBadge'),
-  progressBar: document.getElementById('progressBar'),
-  progressText: document.getElementById('progressText'),
-
-  thumbs: document.getElementById('thumbs'),
-
-  qualityPanel: document.getElementById('qualityPanel'),
-  badList: document.getElementById('badList'),
-  warnList: document.getElementById('warnList'),
-  btnShowBad: document.getElementById('btnShowBad'),
-  btnDeleteBad: document.getElementById('btnDeleteBad'),
-  btnDeleteCurrentBad: document.getElementById('btnDeleteCurrentBad'),
-  btnShowWarn: document.getElementById('btnShowWarn'),
-
-  resultCard: document.getElementById('resultCard'),
-  resultBadge: document.getElementById('resultBadge'),
-  resultText: document.getElementById('resultText'),
-  resultMeta: document.getElementById('resultMeta'),
-  signalsBox: document.getElementById('signalsBox'),
-
-  debugBox: document.getElementById('debugBox'),
+  fileInput: document.getElementById("fileInput"),
+  btnAnalyze: document.getElementById("btnAnalyze"),
+  slideImg: document.getElementById("slideImg"),
+  progressBar: document.getElementById("progressBar"),
+  progressText: document.getElementById("progressText"),
+  debugBox: document.getElementById("debugBox"),
+  toggleDeRu: document.getElementById("toggleDeRu"),
 };
 
 /* ===========================
@@ -208,13 +85,13 @@ const el = {
 =========================== */
 try {
   if (window.Telegram && window.Telegram.WebApp) {
-    window.Telegram.WebApp.ready();
-    window.Telegram.WebApp.expand();
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
   }
 } catch (_) {}
 
 /* ===========================
-   TIMEOUT HELPER
+   TIMEOUT
 =========================== */
 function withTimeout(promise, ms, label) {
   let t;
@@ -225,873 +102,111 @@ function withTimeout(promise, ms, label) {
 }
 
 /* ===========================
-   UI FAIL (safe)
-   Показывает ошибку прямо в интерфейсе
+   UI FAIL
 =========================== */
 function uiFail(msg, err) {
   console.error(msg, err || "");
-
-  // Не падаем, если элементы ещё не готовы
-  try {
-    setProgress(0, msg);
-  } catch (_) {}
-
-  try {
-    if (typeof el !== "undefined" && el.debugBox) {
-      el.debugBox.hidden = false;
-      el.debugBox.textContent = `${msg}\n\n${(err && err.message) ? err.message : (err || "")}`.trim();
-    } else {
-      // запасной канал
-      alert(msg);
-    }
-  } catch (_) {
-    // последний запасной канал
-    alert(msg);
-  }
-
-try { state.analyzing = false; } catch (_) {}
-try { setLocked(false); } catch (_) {}
-
+  el.debugBox.textContent =
+    msg + (err && err.message ? "\n\n" + err.message : "");
+  el.progressText.textContent = msg;
+  state.analyzing = false;
+  setLocked(false);
 }
 
 /* ===========================
-   HARD CHECK: Tesseract loaded?
-   (Важно: AFTER uiFail is defined)
+   GLOBAL ERROR TRAP
 =========================== */
-if (!window.Tesseract) {
-  uiFail(
-    "Tesseract.js не загрузился. CDN блокируется или нет интернета в Telegram WebView.",
-    ""
-  );
-}
+window.addEventListener("error", e => {
+  uiFail(`JS ERROR: ${e.message}`, e.error);
+});
+window.addEventListener("unhandledrejection", e => {
+  uiFail(`PROMISE ERROR: ${e.reason}`, e.reason);
+});
 
 /* ===========================
-   UTIL: UI LOCK
+   HARD CHECK (after uiFail)
+=========================== */
+setTimeout(() => {
+  if (!window.Tesseract) {
+    uiFail(
+      "Tesseract.js не загрузился. Telegram iOS блокирует CDN / Worker / WASM.",
+      ""
+    );
+  }
+}, 300);
+
+/* ===========================
+   UI LOCK
 =========================== */
 function setLocked(v) {
   state.locked = v;
-
-  const lockables = [
-    el.fileInput,
-    el.btnClear,
-    el.btnPrev,
-    el.btnNext,
-    el.btnDeleteCurrent,
-    el.btnAnalyze,
-    el.toggleDeRu,
-  ];
-
-  lockables.forEach(node => {
-    if (!node) return;
-    if (node.tagName === 'INPUT') node.disabled = v;
-    else node.disabled = v;
-  });
-
-  // thumbs clicks disabled via CSS class
-  if (v) el.thumbs.classList.add('locked');
-  else el.thumbs.classList.remove('locked');
+  el.btnAnalyze.disabled = v;
 }
 
 /* ===========================
-   UTIL: RAF YIELD (anti-freeze)
+   WORKER INIT
 =========================== */
-function rafYield() {
-  return new Promise(res => requestAnimationFrame(() => res()));
-}
-
-/* ===========================
-   IMAGE HELPERS
-=========================== */
-async function fileToImageBitmap(file) {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = new Image();
-    img.decoding = 'async';
-    img.src = url;
-    await img.decode();
-    const bmp = await createImageBitmap(img);
-    return bmp;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-function canvasToBlob(canvas, type='image/jpeg', quality=0.85) {
-  return new Promise(resolve => canvas.toBlob(resolve, type, quality));
-}
-
-function clamp(n, a, b) {
-  return Math.max(a, Math.min(b, n));
-}
-
-/**
- * Create thumbnail + OCR blob (downscaled) to save RAM.
- * - thumb: tiny preview for carousel
- * - ocrBlob: medium sized blob optimized for OCR
- */
-async function makeThumbAndOcrBlob(bitmap) {
-  // THUMB
-  const thumbMax = 260;
-  const tScale = Math.min(1, thumbMax / Math.max(bitmap.width, bitmap.height));
-  const tW = Math.max(1, Math.round(bitmap.width * tScale));
-  const tH = Math.max(1, Math.round(bitmap.height * tScale));
-
-  const thumbCanvas = document.createElement('canvas');
-  thumbCanvas.width = tW;
-  thumbCanvas.height = tH;
-  thumbCanvas.getContext('2d').drawImage(bitmap, 0, 0, tW, tH);
-  const thumbBlob = await canvasToBlob(thumbCanvas, 'image/jpeg', 0.82);
-  const thumbUrl = URL.createObjectURL(thumbBlob);
-
-  // OCR BLOB (bigger than thumb, smaller than original)
-  const ocrMax = 1700; // balance speed/quality
-  const oScale = Math.min(1, ocrMax / Math.max(bitmap.width, bitmap.height));
-  const oW = Math.max(1, Math.round(bitmap.width * oScale));
-  const oH = Math.max(1, Math.round(bitmap.height * oScale));
-
-  const ocrCanvas = document.createElement('canvas');
-  ocrCanvas.width = oW;
-  ocrCanvas.height = oH;
-  ocrCanvas.getContext('2d').drawImage(bitmap, 0, 0, oW, oH);
-  const ocrBlob = await canvasToBlob(ocrCanvas, 'image/jpeg', 0.9);
-
-  return { thumbUrl, ocrBlob };
-}
-
-/* ===========================
-   CONSERVATIVE PRECHECK
-   - inkRatio quick estimate
-   - if very empty: micro-OCR (deu) to avoid missing 2 critical lines
-=========================== */
-
-/**
- * Compute ink ratio:
- * 1) downscale to small canvas
- * 2) grayscale luminance
- * 3) count "dark-ish" pixels => ink
- */
-async function computeInkRatioFromBlob(blob) {
-  const bmp = await createImageBitmap(blob);
-  const maxSide = 220; // fast
-  const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
-  const w = Math.max(1, Math.round(bmp.width * scale));
-  const h = Math.max(1, Math.round(bmp.height * scale));
-
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(bmp, 0, 0, w, h);
-
-  const img = ctx.getImageData(0, 0, w, h);
-  const d = img.data;
-
-  let ink = 0;
-  const total = w * h;
-
-  // Thresholds tuned for documents
-  // luminance < 200 => counts as "ink-ish" (text/lines)
-  for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i+1], b = d[i+2];
-    const lum = 0.2126*r + 0.7152*g + 0.0722*b;
-    if (lum < 200) ink++;
-  }
-
-  bmp.close();
-  return ink / total;
-}
-
-/**
- * Detect key signals in OCR text.
- * Must be conservative: if in doubt => treat as important.
- */
-function extractImportantSignals(text) {
-  const t = (text || '').toLowerCase();
-
-  const signals = [];
-
-  const reDate = /\b(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4})\b/g;
-  const reEuro = /(\€|\beur\b|€\s*\d|\d\s*€)/g;
-  const reDeadline = /\b(frist|fristende|termin|bis\s+zum|spätestens|spatestens|abgabe|rückmeldung|ruckmeldung|widerspruch|einspruch|anhörung|anhoerung)\b/g;
-  const reAkten = /\b(aktenzeichen|az\.?|kundennummer|kunden\-?nr|bg\-?nummer|bedarfsgemeinschaft|geschäftszeichen|geschaeftszeichen)\b/g;
-  const reAction = /\b(aufforderung|mitwirkung|nachweis|unterlagen|bitte\s+senden|einreichen|vorlegen|zahlung|rückforderung|ruckforderung|forderung|bescheid)\b/g;
-
-  let m;
-  while ((m = reDate.exec(t))) signals.push(`Дата: ${m[1]}`);
-  if (reEuro.test(t)) signals.push('€ / EUR');
-  if (reDeadline.test(t)) signals.push('Frist/Termin/Deadline');
-  if (reAkten.test(t)) signals.push('Aktenzeichen / Kundennummer / BG-Nummer');
-  if (reAction.test(t)) signals.push('Сигналы действия (Aufforderung/Unterlagen/Widerspruch/… )');
-
-  // De-dup
-  return Array.from(new Set(signals));
-}
-
-/**
- * Micro-OCR:
- * - single pass, DE only
- * - smaller image for speed
- */
-async function microOcrDE(blob) {
-  // Prepare micro-blob (smaller)
-  const bmp = await createImageBitmap(blob);
-  const maxSide = 900;
-  const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
-  const w = Math.max(1, Math.round(bmp.width * scale));
-  const h = Math.max(1, Math.round(bmp.height * scale));
-
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  c.getContext('2d').drawImage(bmp, 0, 0, w, h);
-  bmp.close();
-
-  const microBlob = await canvasToBlob(c, 'image/jpeg', 0.88);
-  const { data } = await state.worker.recognize(microBlob, {
-    // progress handled outside
-  });
-  const text = (data && data.text) ? data.text : '';
-  const conf = (data && typeof data.confidence === 'number') ? data.confidence : 0;
-  return { text, conf };
-}
-
-/**
- * Precheck decision:
- * - always compute inkRatio
- * - if very low => micro-OCR to avoid missing "2 critical lines"
- * - decides whether to skip full OCR (only if truly empty + no signals)
- */
-async function conservativePrecheck(page, pageIndex) {
-  page.stage = 'precheck';
-  updateSlideMeta(pageIndex);
-
-  const inkRatio = await computeInkRatioFromBlob(page.ocrBlob);
-  page.inkRatio = inkRatio;
-
-  const VERY_EMPTY = 0.010;  // extremely low ink
-  const LOW_INK    = 0.020;  // low ink, but might be sparse text
-
-  // If seems empty -> micro OCR must run
-  if (inkRatio <= VERY_EMPTY) {
-    page.stage = 'micro-ocr';
-    updateSlideMeta(pageIndex);
-
-    const micro = await microOcrDE(page.ocrBlob);
-    page.microText = micro.text;
-    page.microConf = micro.conf;
-
-    const signals = extractImportantSignals(micro.text);
-    page.importantSignals = signals;
-
-    const cleanLen = (micro.text || '').replace(/\s+/g,'').length;
-
-    // If truly empty and no signals => WARN and SKIP full OCR
-    if (cleanLen < 12 && signals.length === 0) {
-      page.quality = 'warn';
-      page.reason = 'Страница выглядит пустой (low ink). Micro-OCR не нашёл значимого текста.';
-      page.fullText = '';
-      page.conf = micro.conf || 0;
-      page.stage = 'done-precheck-skip';
-      return { skipFullOcr: true };
-    }
-
-    // Otherwise treat as important => go full OCR
-    page.quality = 'ok'; // provisional
-    page.reason = signals.length ? 'Найдены ключевые сигналы на “пустой” странице — выполняю полный OCR.' : 'Страница выглядит пустой, но micro-OCR нашёл текст — выполняю полный OCR.';
-    page.stage = 'done-precheck-go';
-    return { skipFullOcr: false };
-  }
-
-  // Not "very empty". If just low ink: do NOT skip, but can mark as "needs attention" later.
-  if (inkRatio <= LOW_INK) {
-    page.precheckNote = 'Низкая плотность чернил (sparse). Полный OCR обязателен.';
-  } else {
-    page.precheckNote = '';
-  }
-
-  return { skipFullOcr: false };
-}
-
-/* ===========================
-   TESSERACT WORKER (single)
-=========================== */
-function withTimeout(promise, ms, label) {
-  let t;
-  const timeout = new Promise((_, rej) => {
-    t = setTimeout(() => rej(new Error(`TIMEOUT: ${label} (${ms}ms)`)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
-}
-
-function uiFail(msg, err) {
-  console.error(msg, err || "");
-  setProgress(0, msg);
-  // покажем в debugBox даже если toggleDebug выключен
-  el.debugBox.hidden = false;
-  el.debugBox.textContent = `${msg}\n\n${(err && err.message) ? err.message : (err || "")}`.trim();
-  setLocked(false);
-  state.analyzing = false;
-}
-
 async function ensureWorker() {
   if (state.worker) return state.worker;
 
-  try {
-    const cfg = window.TESSERACT_CFG || {};
+  const cfg = window.TESSERACT_CFG;
 
-    // ВАЖНО: явные пути (иначе iOS Telegram часто “подвисает”)
-    const create = Tesseract.createWorker({
-      logger: (m) => {
-        if (!state.analyzing) return;
-        if (!m || !m.status) return;
-
-        const status = m.status;
-        const prog = (typeof m.progress === "number") ? m.progress : 0;
-
-        if (status.includes("recognizing")) {
-          setProgress(prog, `OCR: ${(prog * 100).toFixed(0)}%`);
-        } else if (status.includes("loading") || status.includes("initializing")) {
-          setProgress(prog, status);
-        }
-      },
+  state.worker = await withTimeout(
+    Tesseract.createWorker({
       workerPath: cfg.workerPath,
       corePath: cfg.corePath,
-      langPath: cfg.langPath
-    });
+      langPath: cfg.langPath,
+      logger: m => {
+        if (m.progress)
+          el.progressBar.style.width = Math.round(m.progress * 100) + "%";
+      }
+    }),
+    20000,
+    "createWorker"
+  );
 
-    state.worker = await withTimeout(create, 45000, "createWorker");
+  await withTimeout(state.worker.loadLanguage("deu"), 20000, "loadLanguage");
+  await withTimeout(state.worker.initialize("deu"), 20000, "initialize");
 
-    // базовый язык
-    await withTimeout(state.worker.loadLanguage("deu"), 45000, "loadLanguage(deu)");
-    await withTimeout(state.worker.initialize("deu"), 45000, "initialize(deu)");
-
-    await state.worker.setParameters({ tessedit_pageseg_mode: "6" });
-
-    return state.worker;
-  } catch (e) {
-    uiFail("OCR не запустился (worker/wasm/lang). Проверь интернет/CORS в Telegram.", e);
-    throw e;
-  }
-}
-
-async function switchLanguage(lang) {
-  try {
-   await withTimeout(state.worker.loadLanguage(lang), 60000, `loadLanguage(${lang})`);
-await withTimeout(state.worker.initialize(lang), 60000, `initialize(${lang})`);
-    await state.worker.setParameters({ tessedit_pageseg_mode: "6" });
-  } catch (e) {
-    uiFail(`Не удалось переключить язык OCR на ${lang}.`, e);
-    throw e;
-  }
-}
-
-
-
-/* ===========================
-   QUALITY CLASSIFICATION
-   - includes Patch-1 rule (few lines but important => WARN not BAD)
-=========================== */
-function classifyQualityFromOcr(text, confidence, inkRatio) {
-  const t = (text || '').trim();
-  const compactLen = t.replace(/\s+/g, '').length;
-
-  const signals = extractImportantSignals(t);
-
-  // Patch-1: few lines but important -> WARN (not BAD)
-  const hasImportant = signals.length > 0;
-  const looksTable = /(\b\w+\b\s{2,}\b\w+\b)|(\d+[.,]\d{2}\s*€)/.test(t);
-
-  // BAD candidates
-  const veryLowConf = confidence < 35;
-  const veryShort = compactLen < 25;
-
-  if (veryLowConf && veryShort) {
-    if (hasImportant || looksTable || inkRatio > 0.015) {
-      return { quality: 'warn', reason: 'Текст распознан слабо, но есть признаки важной информации (дата/€ / таблица).', signals };
-    }
-    return { quality: 'bad', reason: 'Плохое распознавание: мало текста и низкая уверенность. Пересними/улучши.', signals };
-  }
-
-  // WARN: low ink or medium conf issues
-  if (confidence < 55 && compactLen < 80) {
-    if (hasImportant) {
-      return { quality: 'warn', reason: 'Текст распознан частично, но есть ключевые сигналы. Лучше улучшить качество.', signals };
-    }
-    return { quality: 'warn', reason: 'Текст распознан частично. Возможны пропуски.', signals };
-  }
-
-  // If page is sparse (low ink), keep WARN (conservative)
-  if (typeof inkRatio === 'number' && inkRatio < 0.02 && compactLen < 120) {
-    if (hasImportant) {
-      return { quality: 'warn', reason: 'Низкая плотность текста, но есть важные сигналы — проверь глазами.', signals };
-    }
-    return { quality: 'warn', reason: 'Низкая плотность текста — возможно, часть информации потеряна.', signals };
-  }
-
-  return { quality: 'ok', reason: hasImportant ? 'Распознано. Есть ключевые сигналы.' : 'Распознано.', signals };
+  return state.worker;
 }
 
 /* ===========================
-   RESULT LOGIC (MVP heuristic)
+   ANALYZE
 =========================== */
-function decideOutcome(allText) {
-  const t = (allText || '').toLowerCase();
-
-  const signals = extractImportantSignals(allText);
-
-  const actionWords = /\b(aufforderung|mitwirkung|nachweis|unterlagen|einreichen|vorlegen|widerspruch|einspruch|anhörung|zahlung|rückforderung|forderung|bescheid|termin)\b/;
-  const neutralWords = /\b(info|information|mitteilung|kenntnis|zur\s+kenntnis)\b/;
-
-  const hasAction = actionWords.test(t);
-  const hasNeutral = neutralWords.test(t);
-
-  let verdict = 'Неясно (недостаточно данных)';
-  let badge = 'UNCLEAR';
-
-  if (hasAction || signals.some(s => s.includes('Frist') || s.includes('Сигналы действия'))) {
-    verdict = 'Требуется действие';
-    badge = 'ACTION';
-  } else if (hasNeutral && !hasAction) {
-    verdict = 'Не требуется (похоже на уведомление)';
-    badge = 'NOACTION';
-  }
-
-  // Deadline extraction (simple)
-  const dates = (t.match(/\b\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4}\b/g) || []).slice(0, 8);
-  const meta = dates.length ? `Найдены даты: ${dates.join(', ')}` : 'Явный дедлайн не найден (проверь вручную, если это важно).';
-
-  return { verdict, badge, meta, signals };
-}
-
-/* ===========================
-   UI: THUMBS / SLIDE
-=========================== */
-function updateCounters() {
-  el.addedCounter.textContent = `Добавлено: ${state.pages.length}`;
-  const i = state.currentIndex >= 0 ? (state.currentIndex + 1) : 0;
-  el.pageCounter.textContent = `Страница ${i}/${state.pages.length}`;
-}
-
-function setProgress(p, text) {
-  const pct = clamp(Math.round((p || 0) * 100), 0, 100);
-  el.progressBar.style.width = pct + '%';
-  el.progressText.textContent = text || '—';
-}
-
-function badgeText(q) {
-  if (q === 'ok') return 'OK';
-  if (q === 'warn') return 'WARN';
-  if (q === 'bad') return 'BAD';
-  return '—';
-}
-
-function badgeClass(q) {
-  if (q === 'ok') return 'badge ok';
-  if (q === 'warn') return 'badge warn';
-  if (q === 'bad') return 'badge bad';
-  return 'badge';
-}
-
-function updateSlideMeta(index) {
-  if (index < 0 || index >= state.pages.length) return;
-  const p = state.pages[index];
-
-  el.qualityBadge.textContent = badgeText(p.quality);
-  el.qualityBadge.className = badgeClass(p.quality);
-
-  if (state.analyzing) {
-    const stage = p.stage ? `Этап: ${p.stage}` : '';
-    const hint = p.precheckNote ? ` • ${p.precheckNote}` : '';
-    const ink = (typeof p.inkRatio === 'number') ? `inkRatio=${p.inkRatio.toFixed(3)}` : '';
-    const dbg = `${stage}${hint}\n${ink}\n${p.reason || ''}`.trim();
-
-    if (el.toggleShowDebug.checked) {
-      el.debugBox.hidden = false;
-      el.debugBox.textContent = dbg || '—';
-    } else {
-      el.debugBox.hidden = true;
-    }
-  } else {
-    if (el.toggleShowDebug.checked) {
-      const ink = (typeof p.inkRatio === 'number') ? `inkRatio=${p.inkRatio.toFixed(3)}` : 'inkRatio=—';
-      el.debugBox.hidden = false;
-      el.debugBox.textContent = `${ink}\n${p.reason || ''}`.trim();
-    } else {
-      el.debugBox.hidden = true;
-    }
-  }
-}
-
-function renderThumbs() {
-  el.thumbs.innerHTML = '';
-  state.pages.forEach((p, idx) => {
-    const t = document.createElement('button');
-    t.type = 'button';
-    t.className = 'thumb';
-    t.dataset.idx = String(idx);
-
-    const img = document.createElement('img');
-    img.src = p.thumbUrl;
-    img.alt = 'thumb';
-
-    const q = document.createElement('div');
-    q.className = 'thumbBadge ' + (p.quality || '');
-    q.textContent = badgeText(p.quality);
-
-    t.appendChild(img);
-    t.appendChild(q);
-
-    if (idx === state.currentIndex) t.classList.add('active');
-
-    t.addEventListener('click', () => {
-      if (state.locked) return;
-      setCurrentIndex(idx);
-    });
-
-    el.thumbs.appendChild(t);
-  });
-}
-
-function setCurrentIndex(idx) {
-  state.currentIndex = clamp(idx, 0, state.pages.length - 1);
-  const p = state.pages[state.currentIndex];
-
-  el.slideImg.src = p.thumbUrl;
-  updateCounters();
-  renderThumbs();
-  updateSlideMeta(state.currentIndex);
-}
-
-function removePageAt(idx) {
-  if (idx < 0 || idx >= state.pages.length) return;
-
-  const p = state.pages[idx];
-  try { URL.revokeObjectURL(p.thumbUrl); } catch (_) {}
-
-  state.pages.splice(idx, 1);
-
-  if (state.pages.length === 0) {
-    state.currentIndex = -1;
-    el.slideImg.removeAttribute('src');
-  } else {
-    state.currentIndex = clamp(state.currentIndex, 0, state.pages.length - 1);
-  }
-
-  updateCounters();
-  renderThumbs();
-  if (state.currentIndex >= 0) {
-    el.slideImg.src = state.pages[state.currentIndex].thumbUrl;
-    updateSlideMeta(state.currentIndex);
-  }
-
-  updateQualityPanel();
-}
-
-/* ===========================
-   QUALITY PANEL
-=========================== */
-function getBadPages() {
-  return state.pages
-    .map((p, i) => ({ p, i }))
-    .filter(x => x.p.quality === 'bad');
-}
-
-function getWarnPages() {
-  return state.pages
-    .map((p, i) => ({ p, i }))
-    .filter(x => x.p.quality === 'warn');
-}
-
-function updateQualityPanel() {
-  const bad = getBadPages();
-  const warn = getWarnPages();
-
-  if (bad.length === 0 && warn.length === 0) {
-    el.qualityPanel.hidden = true;
-    return;
-  }
-
-  el.qualityPanel.hidden = false;
-
-  el.badList.textContent = bad.length
-    ? bad.map(x => `Стр. ${x.i+1}: ${x.p.reason || '—'}`).join('\n')
-    : '—';
-
-  el.warnList.textContent = warn.length
-    ? warn.map(x => `Стр. ${x.i+1}: ${x.p.reason || '—'}`).join('\n')
-    : '—';
-}
-
-/* ===========================
-   EVENTS
-=========================== */
-el.toggleShowDebug.addEventListener('change', () => {
-  if (state.currentIndex >= 0) updateSlideMeta(state.currentIndex);
-});
-
-el.fileInput.addEventListener('change', async (e) => {
-  if (state.locked) return;
-  const files = Array.from(e.target.files || []);
-  if (!files.length) return;
-
-  const space = MAX_PAGES - state.pages.length;
-  const toTake = files.slice(0, space);
-
-  for (const file of toTake) {
-    const bmp = await fileToImageBitmap(file);
-    const { thumbUrl, ocrBlob } = await makeThumbAndOcrBlob(bmp);
-    bmp.close && bmp.close();
-
-    state.pages.push({
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
-      thumbUrl,
-      ocrBlob,
-      quality: null,
-      reason: '',
-      inkRatio: null,
-      microText: '',
-      fullText: '',
-      conf: 0,
-      importantSignals: [],
-      stage: '',
-      precheckNote: '',
-    });
-
-    await rafYield();
-  }
-
-  // Reset input so same file can be added again after delete
-  el.fileInput.value = '';
-
-  if (state.currentIndex === -1 && state.pages.length > 0) {
-    setCurrentIndex(0);
-  } else {
-    updateCounters();
-    renderThumbs();
-    updateSlideMeta(state.currentIndex);
-  }
-});
-
-el.btnClear.addEventListener('click', () => {
-  if (state.locked) return;
-  state.pages.forEach(p => { try { URL.revokeObjectURL(p.thumbUrl); } catch(_){} });
-  state.pages = [];
-  state.currentIndex = -1;
-  el.slideImg.removeAttribute('src');
-  updateCounters();
-  renderThumbs();
-  updateQualityPanel();
-  resetResult();
-});
-
-el.btnPrev.addEventListener('click', () => {
-  if (state.locked || state.pages.length === 0) return;
-  setCurrentIndex((state.currentIndex - 1 + state.pages.length) % state.pages.length);
-});
-
-el.btnNext.addEventListener('click', () => {
-  if (state.locked || state.pages.length === 0) return;
-  setCurrentIndex((state.currentIndex + 1) % state.pages.length);
-});
-
-el.btnDeleteCurrent.addEventListener('click', () => {
-  if (state.locked || state.currentIndex < 0) return;
-  removePageAt(state.currentIndex);
-});
-
-el.btnResetResults.addEventListener('click', () => {
-  if (state.locked) return;
-  resetResult();
-});
-
-function bindQualityPanelActions() {
-  // SHOW BAD
-  el.btnShowBad.onclick = () => {
-    const bad = getBadPages();
-    if (!bad.length) return;
-    setCurrentIndex(bad[0].i);
-  };
-
-  // SHOW WARN
-  el.btnShowWarn.onclick = () => {
-    const warn = getWarnPages();
-    if (!warn.length) return;
-    setCurrentIndex(warn[0].i);
-  };
-
-  // DELETE BAD
-  el.btnDeleteBad.onclick = () => {
-    if (state.locked) return;
-    const bad = getBadPages().map(x => x.i).sort((a,b)=>b-a);
-    bad.forEach(i => removePageAt(i));
-  };
-
-  // DELETE CURRENT BAD
-  el.btnDeleteCurrentBad.onclick = () => {
-    if (state.locked) return;
-    const idx = state.currentIndex;
-    if (idx < 0) return;
-    if (state.pages[idx].quality !== 'bad') return;
-    removePageAt(idx);
-  };
-}
-bindQualityPanelActions();
-
-/* ===========================
-   ANALYZE FLOW
-=========================== */
-el.btnAnalyze.addEventListener('click', async () => {
-  if (state.locked) return;
-  if (state.pages.length === 0) return;
-
-  resetResult();
-  state.stopDueToBad = false;
+el.btnAnalyze.onclick = async () => {
+  if (state.analyzing) return;
   state.analyzing = true;
-
   setLocked(true);
-  setProgress(0, 'Подготовка OCR…');
+  el.debugBox.textContent = "";
+  el.progressText.textContent = "Подготовка OCR…";
+
+  const watchdog = setTimeout(() => {
+    uiFail(
+      "OCR завис. Telegram iOS почти наверняка блокирует WebWorker/WASM.",
+      ""
+    );
+  }, 20000);
 
   try {
     await ensureWorker();
-
-    // ensure language
-    const lang = el.toggleDeRu.checked ? 'deu+rus' : 'deu';
-    await switchLanguage(lang);
-
-    // reset qualities
-    state.pages.forEach(p => {
-      p.quality = null;
-      p.reason = '';
-      p.fullText = '';
-      p.microText = '';
-      p.importantSignals = [];
-      p.stage = '';
-      p.precheckNote = '';
-      p.conf = 0;
-    });
-    renderThumbs();
-    updateSlideMeta(state.currentIndex);
-    updateQualityPanel();
-
-    let collectedText = '';
-
-    for (let i = 0; i < state.pages.length; i++) {
-      setCurrentIndex(i);
-
-      const page = state.pages[i];
-      setProgress(0, `Страница ${i+1}/${state.pages.length}: precheck…`);
-
-      // 1) CONSERVATIVE PRECHECK
-      const pre = await conservativePrecheck(page, i);
-      renderThumbs();
-      updateSlideMeta(i);
-
-      await rafYield();
-
-      if (pre.skipFullOcr) {
-        // WARN but not block
-        renderThumbs();
-        updateSlideMeta(i);
-        updateQualityPanel();
-        await rafYield();
-        continue;
-      }
-
-      // 2) FULL OCR
-      page.stage = 'full-ocr';
-      updateSlideMeta(i);
-
-      setProgress(0, `Страница ${i+1}/${state.pages.length}: OCR…`);
-
-      const { data } = await state.worker.recognize(page.ocrBlob);
-      const text = (data && data.text) ? data.text : '';
-      const conf = (data && typeof data.confidence === 'number') ? data.confidence : 0;
-
-      page.fullText = text;
-      page.conf = conf;
-
-      // 3) QUALITY CLASSIFY
-      const cls = classifyQualityFromOcr(text, conf, page.inkRatio);
-      page.quality = cls.quality;
-      page.reason = cls.reason;
-      page.importantSignals = Array.from(new Set([...(page.importantSignals || []), ...(cls.signals || [])]));
-
-      page.stage = 'done';
-      renderThumbs();
-      updateSlideMeta(i);
-      updateQualityPanel();
-
-      // 4) BAD blocks analysis
-      if (page.quality === 'bad') {
-        state.stopDueToBad = true;
-        setProgress(0, `Остановлено: есть BAD на странице ${i+1}`);
-        break;
-      }
-
-      collectedText += '\n' + text;
-
-      await rafYield();
-    }
-
-    // If stopped due to BAD: show panel, unlock buttons (Patch-2)
-    if (state.stopDueToBad) {
-      // Important: unlock UI but keep quality panel active
-      setLocked(false);
-      state.analyzing = false;
-      setProgress(0, 'Есть BAD — исправь/удали нечитаемые и запусти анализ снова.');
-      // Rebind actions to be extra safe (Patch-2)
-      bindQualityPanelActions();
-      return;
-    }
-
-    // 5) FINAL RESULT
-    const res = decideOutcome(collectedText);
-    showResult(res);
-
-    setProgress(1, 'Готово');
-  } catch (err) {
-    console.error(err);
-    setProgress(0, 'Ошибка анализа. Открой консоль для деталей.');
-  } finally {
-    if (!state.stopDueToBad) {
-      setLocked(false);
-      state.analyzing = false;
-      // keep worker alive for next run
-    }
+    clearTimeout(watchdog);
+    el.progressText.textContent = "OCR готов (движок запущен)";
+  } catch (e) {
+    clearTimeout(watchdog);
+    uiFail("OCR не запустился", e);
   }
-});
-
-function resetResult() {
-  el.resultCard.hidden = true;
-  el.resultBadge.textContent = '—';
-  el.resultBadge.className = 'resultBadge';
-  el.resultText.textContent = '—';
-  el.resultMeta.textContent = '—';
-  el.signalsBox.textContent = '—';
-}
-
-function showResult(res) {
-  el.resultCard.hidden = false;
-
-  el.resultText.textContent = res.verdict;
-  el.resultMeta.textContent = res.meta;
-  el.signalsBox.textContent = res.signals.length ? res.signals.join('\n') : '—';
-
-  el.resultBadge.textContent = res.badge;
-
-  el.resultBadge.className = 'resultBadge';
-  if (res.badge === 'ACTION') el.resultBadge.classList.add('action');
-  if (res.badge === 'NOACTION') el.resultBadge.classList.add('noaction');
-  if (res.badge === 'UNCLEAR') el.resultBadge.classList.add('unclear');
-}
+};
 
 /* ===========================
-   BOOT
+   FILE LOAD (preview)
 =========================== */
-updateCounters();
-setProgress(0, '—');
+el.fileInput.onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const url = URL.createObjectURL(f);
+  el.slideImg.src = url;
+};
 </script>
 </body>
 </html>
-
-
