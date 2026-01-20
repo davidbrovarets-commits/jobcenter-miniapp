@@ -11,7 +11,16 @@
   <script src="https://telegram.org/js/telegram-web-app.js?v=1"></script>
 
   <!-- Tesseract v5 -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=5"></script>
+ <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=5"></script>
+
+<script>
+  window.TESSERACT_CFG = {
+    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
+    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js",
+    langPath: "https://tessdata.projectnaptha.com/4.0.0"
+  };
+</script>
+
 </head>
 
 <body>
@@ -454,44 +463,77 @@ async function conservativePrecheck(page, pageIndex) {
 /* ===========================
    TESSERACT WORKER (single)
 =========================== */
+function withTimeout(promise, ms, label) {
+  let t;
+  const timeout = new Promise((_, rej) => {
+    t = setTimeout(() => rej(new Error(`TIMEOUT: ${label} (${ms}ms)`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
+}
+
+function uiFail(msg, err) {
+  console.error(msg, err || "");
+  setProgress(0, msg);
+  // покажем в debugBox даже если toggleDebug выключен
+  el.debugBox.hidden = false;
+  el.debugBox.textContent = `${msg}\n\n${(err && err.message) ? err.message : (err || "")}`.trim();
+  setLocked(false);
+  state.analyzing = false;
+}
+
 async function ensureWorker() {
   if (state.worker) return state.worker;
 
-  state.worker = await Tesseract.createWorker({
-    logger: (m) => {
-      // We display progress only during active page processing
-      if (!state.analyzing) return;
-      if (!m || !m.status) return;
+  try {
+    const cfg = window.TESSERACT_CFG || {};
 
-      const status = m.status;
-      const prog = (typeof m.progress === 'number') ? m.progress : 0;
+    // ВАЖНО: явные пути (иначе iOS Telegram часто “подвисает”)
+    const create = Tesseract.createWorker({
+      logger: (m) => {
+        if (!state.analyzing) return;
+        if (!m || !m.status) return;
 
-      // show only meaningful
-      if (status.includes('recognizing')) {
-        setProgress(prog, `recognizing text ${(prog*100).toFixed(0)}%`);
-      } else if (status.includes('loading') || status.includes('initializing')) {
-        setProgress(prog, status);
-      }
-    }
-  });
+        const status = m.status;
+        const prog = (typeof m.progress === "number") ? m.progress : 0;
 
-  await state.worker.loadLanguage('deu');
-  await state.worker.initialize('deu');
+        if (status.includes("recognizing")) {
+          setProgress(prog, `OCR: ${(prog * 100).toFixed(0)}%`);
+        } else if (status.includes("loading") || status.includes("initializing")) {
+          setProgress(prog, status);
+        }
+      },
+      workerPath: cfg.workerPath,
+      corePath: cfg.corePath,
+      langPath: cfg.langPath
+    });
 
-  // speed/quality balance
-  await state.worker.setParameters({
-    tessedit_pageseg_mode: '6', // assume a block of text
-  });
+    state.worker = await withTimeout(create, 45000, "createWorker");
 
-  return state.worker;
+    // базовый язык
+    await withTimeout(state.worker.loadLanguage("deu"), 45000, "loadLanguage(deu)");
+    await withTimeout(state.worker.initialize("deu"), 45000, "initialize(deu)");
+
+    await state.worker.setParameters({ tessedit_pageseg_mode: "6" });
+
+    return state.worker;
+  } catch (e) {
+    uiFail("OCR не запустился (worker/wasm/lang). Проверь интернет/CORS в Telegram.", e);
+    throw e;
+  }
 }
 
 async function switchLanguage(lang) {
-  // Tesseract v5: reinitialize when switching
-  await state.worker.loadLanguage(lang);
-  await state.worker.initialize(lang);
-  await state.worker.setParameters({ tessedit_pageseg_mode: '6' });
+  try {
+   await withTimeout(state.worker.loadLanguage(lang), 60000, `loadLanguage(${lang})`);
+await withTimeout(state.worker.initialize(lang), 60000, `initialize(${lang})`);
+    await state.worker.setParameters({ tessedit_pageseg_mode: "6" });
+  } catch (e) {
+    uiFail(`Не удалось переключить язык OCR на ${lang}.`, e);
+    throw e;
+  }
 }
+
+
 
 /* ===========================
    QUALITY CLASSIFICATION
@@ -999,3 +1041,4 @@ setProgress(0, '—');
 </script>
 </body>
 </html>
+
