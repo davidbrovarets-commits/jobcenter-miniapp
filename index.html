@@ -59,6 +59,7 @@
 
         <div class="panelActions">
           <button id="showBadBtn" class="btn" type="button">Показать нечитаемые</button>
+          <button id="deleteCurrentBadBtn" class="btn" type="button">Удалить текущую bad страницу</button>
           <button id="deleteBadBtn" class="btn" type="button">Удалить нечитаемые</button>
           <button id="showWarnBtn" class="btn" type="button">Показать частично распознанные</button>
         </div>
@@ -67,6 +68,9 @@
           Если страницы помечены как нечитаемые — анализ блокируется, чтобы результат был точным.
           Частично распознанные страницы анализ не блокируют, но могут снижать точность.
         </div>
+
+        <!-- Список bad/warn страниц -->
+        <div id="qualityList" class="pageList"></div>
       </div>
 
       <!-- Кнопка запуска -->
@@ -114,7 +118,7 @@
       </div>
 
       <small class="version">
-        v1.6 · thumbnails+ocrBlob · warn/bad · quality panel · single worker · yield · no full rerender · max 15
+        v1.7 · +delete current bad · +bad/warn list · thumbnails+ocrBlob · warn/bad · quality panel · single worker · yield · no full rerender · max 15
       </small>
     </div>
   </div>
@@ -156,8 +160,10 @@
     const qualityTitle = document.getElementById("qualityTitle");
     const qualityText = document.getElementById("qualityText");
     const showBadBtn = document.getElementById("showBadBtn");
+    const deleteCurrentBadBtn = document.getElementById("deleteCurrentBadBtn");
     const deleteBadBtn = document.getElementById("deleteBadBtn");
     const showWarnBtn = document.getElementById("showWarnBtn");
+    const qualityList = document.getElementById("qualityList");
 
     const resultBox = document.getElementById("resultBox");
     const doneBanner = document.getElementById("doneBanner");
@@ -221,6 +227,7 @@
 
       // quality panel buttons
       showBadBtn.disabled = v;
+      deleteCurrentBadBtn.disabled = v;
       deleteBadBtn.disabled = v;
       showWarnBtn.disabled = v;
 
@@ -261,6 +268,15 @@
       const s = slides[index];
       if (!s) return;
       carousel.scrollTo({ left: s.offsetLeft, behavior: "smooth" });
+    }
+
+    function escapeHtml(s) {
+      return String(s || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
     }
 
     // ---------------- Rendering ----------------
@@ -340,10 +356,48 @@
       if (warnNote) warnNote.textContent = pages[idx].reason || "Текст распознан частично. Для точности лучше переснять страницу.";
     }
 
+    // ---------------- Quality List ----------------
+    function renderQualityList() {
+      if (!qualityList) return;
+
+      qualityList.style.display = "none";
+      qualityList.innerHTML = "";
+
+      if (pages.length === 0) return;
+
+      const rows = [];
+
+      pages.forEach((p, i) => {
+        if (p.status !== "bad" && p.status !== "warn") return;
+
+        const tag = (p.status === "bad") ? "BAD" : "WARN";
+        const reason = (p.reason || "").trim() || (
+          p.status === "bad"
+            ? "Качество распознавания низкое. Переснимите или удалите страницу."
+            : "Текст распознан частично. Для точности лучше переснять страницу."
+        );
+
+        rows.push(`
+          <div class="pageListRow">
+            <div class="pageTag ${p.status}">${tag}</div>
+            <div class="pageListText"><b>Страница ${i + 1}</b><br>${escapeHtml(reason)}</div>
+          </div>
+        `);
+      });
+
+      if (rows.length === 0) return;
+
+      qualityList.innerHTML = rows.join("");
+      qualityList.style.display = "flex";
+    }
+
     // ---------------- Quality Panel (BAD/WARN) ----------------
     function updateQualityPanel() {
       // hide by default
       qualityPanel.style.display = "none";
+
+      // always refresh list (it will hide itself if no rows)
+      renderQualityList();
 
       if (pages.length === 0) return;
 
@@ -359,11 +413,13 @@
           "Чтобы анализ был точным, переснимите или удалите их.";
 
         showBadBtn.style.display = "inline-flex";
+        deleteCurrentBadBtn.style.display = "inline-flex";
         deleteBadBtn.style.display = "inline-flex";
         showWarnBtn.style.display = (warn.length > 0) ? "inline-flex" : "none";
 
         // lock-aware enabling
         showBadBtn.disabled = isLocked;
+        deleteCurrentBadBtn.disabled = isLocked;
         deleteBadBtn.disabled = isLocked;
         showWarnBtn.disabled = isLocked;
 
@@ -380,6 +436,7 @@
           "Анализ возможен, но для максимальной точности лучше переснять эти страницы.";
 
         showBadBtn.style.display = "none";
+        deleteCurrentBadBtn.style.display = "none";
         deleteBadBtn.style.display = "none";
         showWarnBtn.style.display = "inline-flex";
 
@@ -401,6 +458,29 @@
     showWarnBtn.addEventListener("click", () => {
       const i = firstWarnIndex();
       if (i >= 0) scrollToPage(i);
+    });
+
+    deleteCurrentBadBtn.addEventListener("click", () => {
+      if (isLocked) return;
+      if (pages.length === 0) return;
+
+      const current = getVisibleIndex();
+      if (current >= 0 && current < pages.length && pages[current].status === "bad") {
+        const id = pages[current].id;
+        removePage(id);
+        updateQualityPanel();
+        renderCarousel();
+        return;
+      }
+
+      const fb = firstBadIndex();
+      if (fb >= 0) {
+        scrollToPage(fb);
+        const id = pages[fb].id;
+        removePage(id);
+        updateQualityPanel();
+        renderCarousel();
+      }
     });
 
     deleteBadBtn.addEventListener("click", () => {
@@ -568,7 +648,6 @@
         "bitte","wir bitten","sie werden gebeten",
         "unterlagen","nachweis","nachweisen","einreichen","vorlegen","mitwirkung",
         "anhörung","aufforderung","fehlende unterlagen","formular","ausfüllen",
-        // табличные/итоговые сигналы (твой кейс 1/5 листа)
         "summe","euro","leistungen","regelbedarf","mehrbedarf","bedarf"
       ];
 
@@ -586,7 +665,6 @@
       const tooShort = (textLen < 80);
       const veryShort = (textLen < 35);
 
-      // 1) Совсем пусто/мусор => BAD (блок)
       if (veryShort && (confBad || ratioBad)) {
         return {
           status: "bad",
@@ -595,7 +673,6 @@
         };
       }
 
-      // 2) Мало текста, но качество хорошее => WARN (НЕ блокируем)
       if (tooShort && confOk && ratioOk) {
         return {
           status: "warn",
@@ -604,7 +681,6 @@
         };
       }
 
-      // 3) Мало текста + есть ключевые сигналы => WARN
       if (tooShort && hasKeySignals && !confBad && !ratioBad) {
         return {
           status: "warn",
@@ -613,7 +689,6 @@
         };
       }
 
-      // 4) Плохая уверенность или мусор => BAD (блок)
       if (confBad || ratioBad) {
         let reason = "Качество распознавания низкое. Переснимите или удалите страницу.";
         if (confBad && ratioBad) reason = "Страница распознана плохо (низкая уверенность и много мусора). Переснимите или удалите.";
@@ -624,7 +699,6 @@
         };
       }
 
-      // 5) Просто мало текста => WARN (не блокируем)
       if (tooShort) {
         return {
           status: "warn",
