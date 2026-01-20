@@ -149,6 +149,7 @@ h1{
 
 /* Carousel */
 .carouselWrap{ margin-top:12px; display:none; }
+
 .carouselHeader{
   display:flex;
   justify-content:space-between;
@@ -292,8 +293,59 @@ h1{
 }
 
 .panelActions .btn{
-  flex:1;
+  flex:1 1 220px;
   min-width:220px;
+}
+
+@media (max-width:520px){
+  .panelActions .btn{
+    flex:1 1 100%;
+    min-width:100%;
+  }
+}
+
+/* Bad / Warn page list */
+.pageList{
+  margin-top:10px;
+  display:none;
+  gap:8px;
+  flex-direction:column;
+}
+
+.pageListRow{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:12px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.04);
+}
+
+.pageTag{
+  flex:0 0 auto;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,0.06);
+  line-height:1;
+  margin-top:2px;
+}
+
+.pageTag.bad{ border-color: var(--bad); background: rgba(255,0,0,0.12); }
+.pageTag.warn{ border-color: var(--warn); background: rgba(255,165,0,0.12); }
+
+.pageListText{
+  color: var(--muted);
+  font-size:13px;
+  line-height:1.35;
+}
+
+.pageListText b{
+  color: var(--text);
+  font-weight:900;
 }
 
 .sectionDivider{
