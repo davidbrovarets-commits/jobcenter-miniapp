@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Jobcenter Letter Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css?v=110" />
+  <link rel="stylesheet" href="style.css?v=200" />
 </head>
 
 <body>
@@ -117,17 +117,29 @@
       </div>
 
       <small class="version">
-        v1.10 · smart blank precheck (micro-OCR) · iOS paths+progress · fast deu + auto deu+rus · +delete current bad · +bad/warn list · max 15
+        v2.0 · modular split · main.js orchestrator
       </small>
     </div>
   </div>
 
-  <!-- Telegram Mini App SDK -->
+  <!-- 1) Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Tesseract.js -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=110"></script>
 
-  <!-- Your app code -->
-  <script src="./app.js?v=110"></script>
+  <!-- 2) Tesseract.js -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=200"></script>
+
+  <!-- 3) Your modules (order matters) -->
+  <!-- Если у тебя названия чуть другие — оставь порядок, но подставь свои имена -->
+  <script src="./config.js?v=200"></script>
+  <script src="./state.js?v=200"></script>
+  <script src="./dom.js?v=200"></script>
+  <script src="./ui-carousel.js?v=200"></script>
+  <script src="./ui-quality.js?v=200"></script>
+  <script src="./image-pipeline.js?v=200"></script>
+  <script src="./ocr.js?v=200"></script>
+  <script src="./analysis.js?v=200"></script>
+
+  <!-- 4) Orchestrator -->
+  <script src="./main.js?v=200"></script>
 </body>
 </html>
