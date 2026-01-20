@@ -7,11 +7,11 @@
   <link rel="stylesheet" href="style.css" />
 
   <style>
+    /* Page-local UI styles (component-level) */
     .actionsRow{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
     .actionsRow .btn{flex:1; min-width:180px;}
-    .muted{opacity:0.9}
-    .chip{display:inline-block; padding:6px 10px; border-radius:999px; background:rgba(0,0,0,0.12); font-size:12px; opacity:0.95}
-    .smallNote{margin-top:8px; font-size:12px; opacity:0.85; line-height:1.35}
+    .chip{display:inline-block; padding:6px 10px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); font-size:12px; opacity:0.95}
+    .smallNote{margin-top:8px; font-size:12px; opacity:0.88; line-height:1.35}
 
     .carouselWrap{margin-top:12px; display:none;}
     .carouselHeader{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px;}
@@ -22,25 +22,36 @@
     .slide{
       scroll-snap-align:start;
       flex:0 0 220px;
-      background:rgba(0,0,0,0.10);
+      background:rgba(255,255,255,0.05);
       border-radius:14px;
       padding:10px;
       border:2px solid transparent;
       position:relative;
     }
     .slide.bad{border-color:rgba(255,0,0,0.75);}
+    .slide.warn{border-color:rgba(255,170,0,0.75);}
     .slide img{width:100%; height:150px; object-fit:cover; border-radius:12px; display:block;}
     .slideMeta{margin-top:8px; display:flex; justify-content:space-between; align-items:center; gap:8px;}
-    .slideMeta .pageNo{font-weight:700; font-size:13px;}
+    .slideMeta .pageNo{font-weight:800; font-size:13px;}
     .delBtn{
-      border:none; background:rgba(0,0,0,0.18); color:inherit;
+      border:none; background:rgba(255,255,255,0.10); color:inherit;
       border-radius:10px; padding:6px 10px; cursor:pointer; opacity:0.95;
     }
     .delBtn:disabled{opacity:0.4; cursor:not-allowed;}
-    .badNote{margin-top:8px; font-size:12px; color:rgba(255,120,120,1); display:none; white-space:pre-wrap;}
+
+    .badNote{
+      margin-top:8px; font-size:12px; color:rgba(255,120,120,1);
+      display:none; white-space:pre-wrap;
+    }
     .slide.bad .badNote{display:block;}
 
-    .progressBox{display:none; margin-top:12px; padding:12px; border-radius:14px; background:rgba(0,0,0,0.12);}
+    .warnNote{
+      margin-top:8px; font-size:12px; color:rgba(255,210,120,1);
+      display:none; white-space:pre-wrap;
+    }
+    .slide.warn .warnNote{display:block;}
+
+    .progressBox{display:none; margin-top:12px; padding:12px; border-radius:14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10);}
     .progressRow{display:flex; align-items:center; gap:12px;}
     .ring{
       width:26px; height:26px; border-radius:50%;
@@ -51,14 +62,14 @@
     }
     @keyframes spin{to{transform:rotate(360deg)}}
     .progressText{line-height:1.25}
-    .progressText .t1{font-weight:800}
+    .progressText .t1{font-weight:900}
     .progressText .t2{opacity:0.95; margin-top:2px}
     .lockNote{margin-top:8px; font-size:12px; opacity:0.9}
 
-    .hintBox{margin-top:10px; padding:10px 12px; border-radius:14px; background:rgba(0,0,0,0.10); display:none;}
+    .hintBox{margin-top:10px; padding:10px 12px; border-radius:14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.10); display:none;}
 
-    .panel{display:none; margin-top:12px; padding:12px; border-radius:14px; background:rgba(0,0,0,0.12);}
-    .panelTitle{font-weight:800; margin-bottom:6px;}
+    .panel{display:none; margin-top:12px; padding:12px; border-radius:14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10);}
+    .panelTitle{font-weight:900; margin-bottom:6px;}
     .panelText{white-space:pre-wrap; opacity:0.95;}
     .panelActions{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
     .panelActions .btn{flex:1; min-width:220px;}
@@ -66,12 +77,15 @@
 </head>
 
 <body>
-  <div class="app">
-    <h1 id="title">Проверка письма Jobcenter</h1>
-    <p id="subtitle">Помогаем понять, требуется ли действие по письму.</p>
+  <div class="container">
+    <div class="header">
+      <span class="badge">MVP · Фото/скрины · RU-only</span>
+      <h1 id="title">Проверка письма Jobcenter</h1>
+      <p class="subtitle" id="subtitle">Показываем, требуется ли действие по письму.</p>
+    </div>
 
     <div class="card">
-      <p id="disclaimer">
+      <p class="disclaimer" id="disclaimer">
         Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.
       </p>
 
@@ -82,6 +96,8 @@
 
       <div class="smallNote">
         <b>Важно:</b> PDF в Telegram Mini App часто не обрабатывается. Для надёжного результата используйте фото/скрин страниц письма.
+        <br/>
+        <b>Лимит:</b> максимум <span id="maxPagesText"></span> страниц за один анализ.
       </div>
 
       <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none" />
@@ -101,21 +117,22 @@
         Для анализа, пожалуйста, добавьте файл.
       </div>
 
-      <!-- Гейт на плохие страницы (A) -->
+      <!-- Панель качества (bad или warn) -->
       <div id="qualityGate" class="panel">
-        <div class="panelTitle">Обнаружены нечитаемые страницы</div>
+        <div id="qualityTitle" class="panelTitle">Проверка качества страниц</div>
         <div id="qualityText" class="panelText"></div>
         <div class="panelActions">
           <button id="showBadBtn" class="btn" type="button">Показать нечитаемые</button>
           <button id="deleteBadBtn" class="btn" type="button">Удалить нечитаемые</button>
+          <button id="showWarnBtn" class="btn" type="button">Показать частично распознанные</button>
         </div>
-        <div class="smallNote">
-          Переснимите/замените отмеченные страницы и повторите анализ. Это нужно, чтобы результат был точным и полным.
+        <div class="smallNote" id="qualityNote">
+          Переснимите/замените отмеченные страницы. Это нужно, чтобы результат был точным и полным.
         </div>
       </div>
 
       <!-- Кнопка финального запуска -->
-      <button id="analyzeBtn" class="btn" type="button" style="margin-top:12px; width:100%;" disabled>
+      <button id="analyzeBtn" class="btnPrimary" type="button" style="margin-top:12px;" disabled>
         Готово → Анализ
       </button>
 
@@ -136,7 +153,7 @@
       <!-- Результат -->
       <div id="resultBox" class="panel">
         <div id="doneBanner" style="display:none; margin-bottom:10px;">
-          <div style="font-weight:800;">Анализ завершён</div>
+          <div style="font-weight:900;">Анализ завершён</div>
           <div style="opacity:0.95; margin-top:2px;">Ниже — результат проверки письма</div>
         </div>
 
@@ -152,15 +169,17 @@
         <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.14);">
           <div class="panelTitle">Перевод (следующий этап)</div>
           <div class="panelText">
-Независимо от результата мы добавим понятный перевод и объяснение письма.
-Это будет подключено на следующем этапе через AI (после стабилизации входа и многостраничности).
+            Независимо от результата мы добавим понятный перевод и объяснение письма.
+            Это будет подключено на следующем этапе через AI (после стабилизации входа и многостраничности).
           </div>
         </div>
       </div>
 
-      <small class="version" style="display:block; margin-top:12px; opacity:0.85;">
-        v1.3 · Quality gate (A) + confident wording + stable multi-page images
-      </small>
+      <div class="footer">
+        <small class="muted">
+          v1.5 · thumbnails + ocrBlob · warn/bad · quality gate A · single worker · yield · no full rerender
+        </small>
+      </div>
     </div>
   </div>
 
@@ -172,7 +191,11 @@
   <script>
     // Telegram init (safe)
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-    if (tg) { tg.ready(); tg.expand(); }
+    if (tg) { try { tg.ready(); tg.expand(); } catch(e) {} }
+
+    // --- Config (MVP limits) ---
+    const MAX_PAGES = 15;
+    document.getElementById("maxPagesText").textContent = String(MAX_PAGES);
 
     // DOM
     const cameraBtn = document.getElementById("cameraBtn");
@@ -193,9 +216,12 @@
     const pLine2 = document.getElementById("pLine2");
 
     const qualityGate = document.getElementById("qualityGate");
+    const qualityTitle = document.getElementById("qualityTitle");
     const qualityText = document.getElementById("qualityText");
+    const qualityNote = document.getElementById("qualityNote");
     const showBadBtn = document.getElementById("showBadBtn");
     const deleteBadBtn = document.getElementById("deleteBadBtn");
+    const showWarnBtn = document.getElementById("showWarnBtn");
 
     const resultBox = document.getElementById("resultBox");
     const doneBanner = document.getElementById("doneBanner");
@@ -205,16 +231,45 @@
     const aboutText = document.getElementById("aboutText");
 
     // State
-    const pages = []; // {id, file, thumbUrl, fullUrl, bad:false, badReason:"", ocrText:"", ocrConfidence:null}
+    // pageObj:
+    // { id, file:null, thumbUrl, ocrBlob, bad, badReason, warn, warnReason, ocrText, ocrConfidence }
+    const pages = [];
     let isLocked = false;
+
+    // One worker for whole analysis
+    let ocrWorker = null;
 
     // ---------- Helpers ----------
     function uid() {
       return Math.random().toString(16).slice(2) + Date.now().toString(16);
     }
 
+    function nextFrame() {
+      return new Promise(r => requestAnimationFrame(() => r()));
+    }
+
     function hasBadPages() {
       return pages.some(p => p.bad);
+    }
+
+    function hasWarnPages() {
+      return pages.some(p => p.warn && !p.bad);
+    }
+
+    function getBadIndexes() {
+      return pages.map((p,i)=>p.bad ? (i+1) : null).filter(Boolean);
+    }
+
+    function getWarnIndexes() {
+      return pages.map((p,i)=>(p.warn && !p.bad) ? (i+1) : null).filter(Boolean);
+    }
+
+    function firstBadIndex() {
+      return pages.findIndex(p => p.bad);
+    }
+
+    function firstWarnIndex() {
+      return pages.findIndex(p => p.warn && !p.bad);
     }
 
     function setLocked(v) {
@@ -222,19 +277,15 @@
       cameraBtn.disabled = v;
       filesBtn.disabled = v;
 
-      // анализ можно запускать только если: не залочено, есть страницы, нет bad pages
+      // analyze enabled only if: unlocked, pages exist, no bad pages
       analyzeBtn.disabled = v || pages.length === 0 || hasBadPages();
 
-      // блокируем кнопки удаления
+      // block delete buttons
       carousel.querySelectorAll("button[data-del]").forEach(btn => btn.disabled = v);
     }
 
     function showZeroHintIfNeeded() {
-      if (pages.length === 0) {
-        zeroHint.style.display = "block";
-      } else {
-        zeroHint.style.display = "none";
-      }
+      zeroHint.style.display = pages.length === 0 ? "block" : "none";
       analyzeBtn.disabled = isLocked || pages.length === 0 || hasBadPages();
     }
 
@@ -242,10 +293,10 @@
       pagesCount.textContent = "Добавлено: " + pages.length;
       if (pages.length === 0) {
         pageIndex.textContent = "Страница: 0 / 0";
-      } else {
-        const idx = getVisibleIndex();
-        pageIndex.textContent = "Страница: " + (idx + 1) + " / " + pages.length;
+        return;
       }
+      const idx = getVisibleIndex();
+      pageIndex.textContent = "Страница: " + (idx + 1) + " / " + pages.length;
     }
 
     function getVisibleIndex() {
@@ -269,6 +320,21 @@
       carousel.scrollTo({ left: s.offsetLeft, behavior: "smooth" });
     }
 
+    function updateSlideByIndex(idx) {
+      const slide = carousel.querySelectorAll(".slide")[idx];
+      if (!slide) return;
+
+      slide.classList.remove("bad", "warn");
+      if (pages[idx].bad) slide.classList.add("bad");
+      else if (pages[idx].warn) slide.classList.add("warn");
+
+      const badNote = slide.querySelector(".badNote");
+      if (badNote) badNote.textContent = pages[idx].badReason || "Страница нечитаема. Переснимите/замените для точного результата.";
+
+      const warnNote = slide.querySelector(".warnNote");
+      if (warnNote) warnNote.textContent = pages[idx].warnReason || "Текст распознан частично. Для точности лучше переснять страницу.";
+    }
+
     function renderCarousel() {
       carousel.innerHTML = "";
 
@@ -283,7 +349,7 @@
 
       pages.forEach((p, idx) => {
         const slide = document.createElement("div");
-        slide.className = "slide" + (p.bad ? " bad" : "");
+        slide.className = "slide" + (p.bad ? " bad" : (p.warn ? " warn" : ""));
         slide.dataset.id = p.id;
 
         const img = document.createElement("img");
@@ -313,11 +379,16 @@
 
         const badNote = document.createElement("div");
         badNote.className = "badNote";
-        badNote.textContent = p.badReason || "Страница плохо читается. Переснимите/замените для точного результата.";
+        badNote.textContent = p.badReason || "Страница нечитаема. Переснимите/замените для точного результата.";
+
+        const warnNote = document.createElement("div");
+        warnNote.className = "warnNote";
+        warnNote.textContent = p.warnReason || "Текст распознан частично. Для точности лучше переснять страницу.";
 
         slide.appendChild(img);
         slide.appendChild(meta);
         slide.appendChild(badNote);
+        slide.appendChild(warnNote);
 
         carousel.appendChild(slide);
       });
@@ -330,56 +401,32 @@
       const i = pages.findIndex(p => p.id === id);
       if (i >= 0) {
         try { URL.revokeObjectURL(pages[i].thumbUrl); } catch(e) {}
-        try { URL.revokeObjectURL(pages[i].fullUrl); } catch(e) {}
+        // ocrBlob doesn't need revoke
         pages.splice(i, 1);
       }
-      // при удалении обновляем гейт и кнопки
-      updateQualityGate();
+
+      updateQualityPanel();
       renderCarousel();
+
       resultBox.style.display = "none";
       progressBox.style.display = "none";
     }
 
-    async function createThumbAndFull(file) {
-      const fullUrl = URL.createObjectURL(file);
-      const thumbUrl = fullUrl;
-      return { thumbUrl, fullUrl };
-    }
-
-    async function addFiles(fileList) {
-      const arr = Array.from(fileList || []);
-      if (!arr.length) return;
-
-      // при добавлении новых файлов: сбрасываем старые bad-оценки только для новых страниц
-      for (const f of arr) {
-        if (!f || !f.type || !f.type.startsWith("image/")) continue;
-        const { thumbUrl, fullUrl } = await createThumbAndFull(f);
-        pages.push({
-          id: uid(),
-          file: f,
-          thumbUrl,
-          fullUrl,
-          bad: false,
-          badReason: "",
-          ocrText: "",
-          ocrConfidence: null
-        });
+    function showLimitHint() {
+      // Simple UI feedback via Telegram haptic / alert if possible; fallback to alert
+      const msg = "Для стабильной работы максимум " + MAX_PAGES + " страниц за один анализ.";
+      if (tg && tg.showPopup) {
+        try {
+          tg.showPopup({ title: "Лимит страниц", message: msg, buttons: [{type:"ok"}] });
+          return;
+        } catch(e) {}
       }
-
-      cameraInput.value = "";
-      filesInput.value = "";
-
-      // Скрываем панели при новом добавлении
-      resultBox.style.display = "none";
-      qualityGate.style.display = "none";
-      progressBox.style.display = "none";
-
-      renderCarousel();
-      updateQualityGate();
+      alert(msg);
     }
 
-    // OCR helpers
-    async function downscaleToDataUrl(file, maxSide = 1800) {
+    // ---------- Image prep: thumbUrl + ocrBlob (file removed) ----------
+    async function createThumbAndOcr(file) {
+      // Load image
       const img = new Image();
       const url = URL.createObjectURL(file);
       img.src = url;
@@ -391,36 +438,180 @@
 
       const w = img.naturalWidth || img.width;
       const h = img.naturalHeight || img.height;
-      const scale = Math.min(1, maxSide / Math.max(w, h));
-      const nw = Math.max(1, Math.round(w * scale));
-      const nh = Math.max(1, Math.round(h * scale));
 
-      const canvas = document.createElement("canvas");
-      canvas.width = nw;
-      canvas.height = nh;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, nw, nh);
+      function toJpegBlob(maxSide, quality) {
+        const scale = Math.min(1, maxSide / Math.max(w, h));
+        const nw = Math.max(1, Math.round(w * scale));
+        const nh = Math.max(1, Math.round(h * scale));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = nw;
+        canvas.height = nh;
+        const ctx = canvas.getContext("2d", { alpha: false });
+        ctx.drawImage(img, 0, 0, nw, nh);
+
+        return new Promise((resolve) => {
+          canvas.toBlob((blob) => resolve(blob), "image/jpeg", quality);
+        });
+      }
+
+      const thumbBlob = await toJpegBlob(650, 0.75);
+      const ocrBlob   = await toJpegBlob(1800, 0.82);
 
       URL.revokeObjectURL(url);
-      return canvas.toDataURL("image/jpeg", 0.9);
+
+      if (!thumbBlob || !ocrBlob) {
+        // Return nulls so caller can mark as bad
+        return { thumbUrl: "", ocrBlob: null };
+      }
+
+      const thumbUrl = URL.createObjectURL(thumbBlob);
+      return { thumbUrl, ocrBlob };
     }
 
+    async function addFiles(fileList) {
+      const arr = Array.from(fileList || []);
+      if (!arr.length) return;
+
+      for (const f of arr) {
+        if (!f || !f.type || !f.type.startsWith("image/")) continue;
+        if (pages.length >= MAX_PAGES) { showLimitHint(); break; }
+
+        const { thumbUrl, ocrBlob } = await createThumbAndOcr(f);
+
+        pages.push({
+          id: uid(),
+          file: null,         // IMPORTANT: we do not store original file
+          thumbUrl: thumbUrl,
+          ocrBlob: ocrBlob,
+
+          bad: false,
+          badReason: "",
+          warn: false,
+          warnReason: "",
+
+          ocrText: "",
+          ocrConfidence: null
+        });
+      }
+
+      cameraInput.value = "";
+      filesInput.value = "";
+
+      // Hide panels on new add
+      resultBox.style.display = "none";
+      progressBox.style.display = "none";
+
+      renderCarousel();
+      updateQualityPanel();
+    }
+
+    // ---------- OCR text cleanup ----------
     function cleanOcrText(t) {
       let s = (t || "");
       s = s.replace(/[^\S\r\n]+/g, " ");
       s = s.replace(/\n{3,}/g, "\n\n");
       s = s.replace(/[|}{]{2,}/g, " ");
+      // keep letters/numbers/punct
       s = s.replace(/[^\p{L}\p{N}\s.,:;!?()+\-\/€$@%]/gu, "");
       s = s.replace(/\s{2,}/g, " ").trim();
       return s;
     }
 
+    function normalize(s) {
+      return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+    }
+
+    // ---------- Page quality evaluation (Balanced) ----------
+    function evaluatePageQuality(text, confidence) {
+      const t = text || "";
+      const textLen = t.length;
+
+      const ns = t.replace(/\s+/g, "");
+      const total = Math.max(1, ns.length);
+      const alphaNum = (ns.match(/[A-Za-zА-Яа-я0-9ÄÖÜäöüß]/g) || []).length;
+      const alphaNumRatio = alphaNum / total;
+
+      const low = normalize(t);
+
+      const keyPatterns = [
+        "termin","einladung","frist","bis zum","spätestens",
+        "bitte","wir bitten","sie werden gebeten",
+        "unterlagen","nachweis","nachweisen","einreichen","vorlegen","mitwirkung",
+        "anhörung","aufforderung","fehlende unterlagen","formular","ausfüllen"
+      ];
+
+      const hasKeySignals = keyPatterns.some(k => low.includes(k));
+
+      // Balanced thresholds
+      const confBad = (confidence !== null && typeof confidence === "number" && confidence < 55);
+      const ratioBad = (alphaNumRatio < 0.50);
+      const tooShort = (textLen < 80);
+
+      // WARN: short but contains key signals (do not block)
+      if (tooShort && hasKeySignals && !confBad && !ratioBad) {
+        return {
+          status: "warn",
+          reason: "Текст распознан частично, но найдены сигналы действия. Для точности лучше переснять страницу.",
+          metrics: { textLen, confidence, alphaNumRatio, hasKeySignals }
+        };
+      }
+
+      // BAD: hard reasons (block)
+      if (confBad || ratioBad || (tooShort && !hasKeySignals)) {
+        let reason = "Страница нечитаема. Переснимите или удалите — иначе результат будет неточным.";
+
+        if (confBad && tooShort) reason = "Страница распознана плохо (мало текста и низкое качество). Переснимите или удалите.";
+        else if (confBad) reason = "Качество распознавания низкое. Переснимите или удалите.";
+        else if (ratioBad) reason = "Текст распознан с большим количеством ошибок. Переснимите или удалите.";
+        else if (tooShort && !hasKeySignals) reason = "На странице почти не удалось распознать текст. Переснимите или удалите.";
+
+        return {
+          status: "bad",
+          reason,
+          metrics: { textLen, confidence, alphaNumRatio, hasKeySignals }
+        };
+      }
+
+      // OK
+      return {
+        status: "ok",
+        reason: "",
+        metrics: { textLen, confidence, alphaNumRatio, hasKeySignals }
+      };
+    }
+
+    // ---------- OCR worker (single) ----------
+    async function getOcrWorker() {
+      if (ocrWorker) return ocrWorker;
+      ocrWorker = await Tesseract.createWorker("deu+rus");
+      return ocrWorker;
+    }
+
+    async function closeOcrWorker() {
+      if (!ocrWorker) return;
+      try { await ocrWorker.terminate(); } catch (e) {}
+      ocrWorker = null;
+    }
+
+    // ---------- OCR one page ----------
     async function ocrOnePage(pageObj, idx, total) {
       pLine1.textContent = "Анализ идёт";
       pLine2.textContent = "Обрабатываем страницы: " + (idx + 1) + " из " + total;
 
-      const dataUrl = await downscaleToDataUrl(pageObj.file, 1800);
-      const { data } = await Tesseract.recognize(dataUrl, "deu+rus", {});
+      if (!pageObj.ocrBlob) {
+        // Could not prepare image
+        pageObj.bad = true;
+        pageObj.badReason = "Не удалось подготовить изображение для анализа. Переснимите страницу и добавьте снова.";
+        pageObj.warn = false;
+        pageObj.warnReason = "";
+        pageObj.ocrText = "";
+        pageObj.ocrConfidence = null;
+        return;
+      }
+
+      const worker = await getOcrWorker();
+      const { data } = await worker.recognize(pageObj.ocrBlob);
 
       const rawText = (data && data.text) ? data.text : "";
       const cleaned = cleanOcrText(rawText);
@@ -429,30 +620,31 @@
       pageObj.ocrText = cleaned;
       pageObj.ocrConfidence = confidence;
 
-      const tooShort = cleaned.length < 60;
-      const lowConf = (confidence !== null && confidence < 55);
+      const q = evaluatePageQuality(cleaned, confidence);
 
-      if (tooShort || lowConf) {
+      if (q.status === "bad") {
         pageObj.bad = true;
-        let reason = "Качество распознавания низкое. Рекомендуем переснять/заменить для точного результата.";
-        if (tooShort && lowConf) reason = "Страница распознана плохо (мало текста и низкое качество). Рекомендуем переснять/заменить.";
-        else if (tooShort) reason = "На странице почти не удалось распознать текст. Рекомендуем переснять/заменить.";
-        pageObj.badReason = reason;
+        pageObj.badReason = q.reason;
+        pageObj.warn = false;
+        pageObj.warnReason = "";
+      } else if (q.status === "warn") {
+        pageObj.bad = false;
+        pageObj.badReason = "";
+        pageObj.warn = true;
+        pageObj.warnReason = q.reason;
       } else {
         pageObj.bad = false;
         pageObj.badReason = "";
+        pageObj.warn = false;
+        pageObj.warnReason = "";
       }
     }
 
-    // ---------- Analysis (rule-based, без "возможно/похоже") ----------
-    function normalize(s) {
-      return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
-    }
-
+    // ---------- Analysis (rule-based, no “maybe”) ----------
     function findDeadline(text) {
       const m1 = text.match(/\b(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
       if (m1) return m1[1];
-      const m2 = text.match(/\b(bis zum|spätestens am|frist|fristen|bis spätestens)\s+(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
+      const m2 = text.match(/\b(bis zum|spätestens am|frist|fristen|bis spätestens)\s+(\d{1,2}\.\d{1,2}\.\d{2,4})\b/i);
       if (m2) return m2[2];
       return "";
     }
@@ -473,12 +665,10 @@
       const found = signalsAction.filter(w => t.includes(w));
       const deadline = findDeadline(t);
 
-      // Решение через факты: "найдены сигналы" vs "не найдены"
       if (found.length >= 2 || (found.length >= 1 && (t.includes("frist") || t.includes("termin") || deadline))) {
         return { kind: "needAction", deadline, signals: found.slice(0, 6) };
       }
 
-      // если явных сигналов действия нет — считаем "не требуется действие"
       return { kind: "noAction", deadline: "", signals: [] };
     }
 
@@ -502,9 +692,20 @@
     function showResult(res, combinedText) {
       doneBanner.style.display = "block";
 
+      // WARN banner in result if exists
+      const warnPages = getWarnIndexes();
+      const warnLineNeed = warnPages.length
+        ? ("Внимание: страницы " + warnPages.join(", ") + " распознаны частично. Сигналы действия найдены. Для точности лучше переснять эти страницы.")
+        : "";
+
+      const warnLineNo = warnPages.length
+        ? ("Внимание: страницы " + warnPages.join(", ") + " распознаны частично. Если вы ожидаете запрос документов или Termin — переснимите эти страницы и повторите анализ.")
+        : "";
+
       if (res.kind === "needAction") {
         resultTitle.textContent = "✅ Требуется действие";
-        resultSupport.textContent = "Это нормально. Ниже — пояснение, что именно требуется.";
+        resultSupport.textContent = (warnLineNeed ? (warnLineNeed + "\n\n") : "") +
+          "Ниже — пояснение, что именно требуется.";
 
         const sig = res.signals.length ? ("Найдены сигналы: " + res.signals.join(", ") + "\n") : "";
         const dl = res.deadline ? ("Срок, указанный в тексте: " + res.deadline + "\n") : "";
@@ -515,16 +716,16 @@
           "• проверьте, просят ли предоставить документы (Unterlagen / Nachweis),\n" +
           "• или прийти/ответить по термину (Termin / Einladung),\n" +
           "• или заполнить форму (Formular / ausfüllen).\n\n" +
-          "Совет: если в письме есть Bitte / Frist / Termin — это прямой сигнал к действию.";
+          "Если в письме есть Bitte / Frist / Termin — это прямой сигнал к действию.";
       }
       else if (res.kind === "noAction") {
         resultTitle.textContent = "❌ Действие не требуется";
-        resultSupport.textContent =
+        resultSupport.textContent = (warnLineNo ? (warnLineNo + "\n\n") : "") +
           "В распознанном тексте не обнаружены просьбы: прислать документы, ответить или прийти в термин.";
 
         resultDetails.textContent =
           "Что это значит:\n" +
-          "• письмо похоже на информационное уведомление (без обязательных действий).\n" +
+          "• письмо выглядит как информационное уведомление (без обязательных действий).\n" +
           "• если вы ожидаете запрос документов или приглашение — проверьте, не пропущена ли какая-то страница.\n";
       }
       else {
@@ -542,42 +743,69 @@
       aboutText.textContent = aboutLetter(combinedText);
 
       resultBox.style.display = "block";
-      qualityGate.style.display = "none";
     }
 
-    // ---------- Quality Gate (A) ----------
-    function updateQualityGate() {
-      if (!hasBadPages()) {
+    // ---------- Quality panel (bad blocks, warn informs) ----------
+    function updateQualityPanel() {
+      const badIdx = getBadIndexes();
+      const warnIdx = getWarnIndexes();
+
+      // Buttons state
+      showBadBtn.disabled = badIdx.length === 0;
+      deleteBadBtn.disabled = isLocked || badIdx.length === 0;
+      showWarnBtn.disabled = warnIdx.length === 0;
+
+      if (badIdx.length === 0 && warnIdx.length === 0) {
         qualityGate.style.display = "none";
         qualityText.textContent = "";
         analyzeBtn.disabled = isLocked || pages.length === 0;
         return;
       }
 
-      const badIdx = pages
-        .map((p, i) => p.bad ? (i + 1) : null)
-        .filter(Boolean);
-
       qualityGate.style.display = "block";
-      qualityText.textContent =
-        "Нечитаемые страницы: " + badIdx.join(", ") + "\n" +
-        "Чтобы анализ был точным, исправьте их: переснимите или удалите.";
 
-      // пока есть bad — анализ запрещён
-      analyzeBtn.disabled = true;
+      if (badIdx.length > 0) {
+        // HARD mode: block analysis
+        qualityTitle.textContent = "Обнаружены нечитаемые страницы";
+        qualityText.textContent =
+          "Нечитаемые страницы: " + badIdx.join(", ") + "\n" +
+          "Чтобы анализ был точным, переснимите или удалите их.";
+
+        qualityNote.textContent =
+          "Переснимите/замените отмеченные страницы и повторите анализ. Это нужно, чтобы результат был точным и полным.";
+
+        analyzeBtn.disabled = true;
+      } else {
+        // SOFT mode: warn only, analysis allowed
+        qualityTitle.textContent = "Есть частично распознанные страницы";
+        qualityText.textContent =
+          "Страницы: " + warnIdx.join(", ") + "\n" +
+          "Анализ возможен. Для точности лучше переснять эти страницы.";
+
+        qualityNote.textContent =
+          "Это не блокирует анализ. Если результат важен — переснимите страницы с предупреждением.";
+
+        analyzeBtn.disabled = isLocked || pages.length === 0;
+      }
     }
 
+    // Buttons: show / delete bad, show warn
     showBadBtn.addEventListener("click", () => {
-      const firstBad = pages.findIndex(p => p.bad);
-      if (firstBad >= 0) scrollToPage(firstBad);
+      const i = firstBadIndex();
+      if (i >= 0) scrollToPage(i);
     });
 
     deleteBadBtn.addEventListener("click", () => {
       if (isLocked) return;
       const toRemove = pages.filter(p => p.bad).map(p => p.id);
       toRemove.forEach(id => removePage(id));
-      updateQualityGate();
+      updateQualityPanel();
       renderCarousel();
+    });
+
+    showWarnBtn.addEventListener("click", () => {
+      const i = firstWarnIndex();
+      if (i >= 0) scrollToPage(i);
     });
 
     // ---------- Events ----------
@@ -606,12 +834,11 @@
     analyzeBtn.addEventListener("click", async () => {
       if (isLocked) return;
       if (pages.length === 0) { showZeroHintIfNeeded(); return; }
-      if (hasBadPages()) { updateQualityGate(); return; } // A: блокируем
+      if (hasBadPages()) { updateQualityPanel(); return; }
 
-      // Старт анализа
+      // Start analysis
       setLocked(true);
       resultBox.style.display = "none";
-      qualityGate.style.display = "none";
       doneBanner.style.display = "none";
 
       progressBox.style.display = "block";
@@ -619,27 +846,39 @@
       pLine2.textContent = "Контролируем содержание письма";
 
       try {
-        // OCR по всем страницам
+        // OCR all pages (sequential)
         for (let i = 0; i < pages.length; i++) {
           await ocrOnePage(pages[i], i, pages.length);
-          renderCarousel();
+
+          // Update only one slide (no heavy rerender)
+          updateSlideByIndex(i);
+          updateCounters();
+
+          // Update quality panel state progressively
+          updateQualityPanel();
+
+          // Give UI a frame
+          await nextFrame();
         }
 
-        // После OCR: если выявились bad pages — включаем гейт (A) и стоп
-        updateQualityGate();
+        // After OCR: if bad pages exist => gate A blocks
+        updateQualityPanel();
         if (hasBadPages()) {
           progressBox.style.display = "none";
           setLocked(false);
           showZeroHintIfNeeded();
-          // автопрокрутка к первой проблемной
-          const firstBad = pages.findIndex(p => p.bad);
-          if (firstBad >= 0) scrollToPage(firstBad);
+
+          const i = firstBadIndex();
+          if (i >= 0) scrollToPage(i);
+
+          await closeOcrWorker();
           return;
         }
 
-        // Перед результатом
+        // Pre-result
         pLine1.textContent = "Анализ идёт";
         pLine2.textContent = "Проверяем, требуется ли от вас действие";
+        await nextFrame();
 
         const combinedText = pages
           .map((p, idx) => `--- Страница ${idx + 1} ---\n${p.ocrText || ""}`)
@@ -647,16 +886,18 @@
 
         const res = analyzeText(combinedText);
 
-        // Завершение
+        // Finish
         pLine1.textContent = "Анализ завершён";
         pLine2.textContent = "Ниже — результат проверки письма";
 
-        setTimeout(() => {
+        setTimeout(async () => {
           showResult(res, combinedText);
           progressBox.style.display = "none";
           setLocked(false);
           showZeroHintIfNeeded();
-        }, 350);
+
+          await closeOcrWorker();
+        }, 250);
 
       } catch (e) {
         progressBox.style.display = "none";
@@ -664,23 +905,24 @@
         showZeroHintIfNeeded();
 
         resultBox.style.display = "block";
-        qualityGate.style.display = "none";
         doneBanner.style.display = "none";
 
         resultTitle.textContent = "⚠️ Не удалось завершить анализ";
-        resultSupport.textContent = "Это нормально. Переснимите страницы ближе и попробуйте ещё раз.";
+        resultSupport.textContent = "Переснимите страницы ближе и попробуйте ещё раз.";
         resultDetails.textContent =
           "Рекомендации:\n" +
           "• текст должен занимать 70–90% кадра\n" +
           "• без бликов и теней\n" +
-          "• переснимите страницы, которые могут быть нечитаемыми\n";
+          "• добавьте страницы с Bitte / Frist / Termin, если они есть\n";
         aboutText.textContent = "—";
+
+        await closeOcrWorker();
       }
     });
 
     // init
     renderCarousel();
-    updateQualityGate();
+    updateQualityPanel();
     showZeroHintIfNeeded();
   </script>
 </body>
