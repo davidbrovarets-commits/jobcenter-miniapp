@@ -1,101 +1,150 @@
-// dom.js
-window.App = window.App || {};
+// dom.js — DOM init + base UI helpers (safe)
+// Ensures App.el exists BEFORE other modules use it.
 
-App.dom = {
-  init() {
+(function () {
+  window.App = window.App || {};
+
+  function must(id) {
+    const el = document.getElementById(id);
+    if (!el) throw new Error(`Missing DOM element: #${id}`);
+    return el;
+  }
+
+  function safeText(el, txt) {
+    try {
+      if (el) el.textContent = String(txt);
+    } catch (_) {}
+  }
+
+  // Public UI fail (others can call)
+  function uiFail(msg, err) {
+    try { console.error(msg, err || ""); } catch (_) {}
+
+    // Try to show in debugBox if exists
+    try {
+      const dbg = App.el && App.el.debugBox ? App.el.debugBox : document.getElementById("debugBox");
+      if (dbg) {
+        dbg.hidden = false;
+        dbg.textContent = `${msg}\n${(err && err.message) ? err.message : (err || "")}`.trim();
+        return;
+      }
+    } catch (_) {}
+
+    // Fallback alert (iOS-friendly)
+    try { alert(msg); } catch (_) {}
+  }
+
+  App.uiFail = App.uiFail || uiFail;
+  window.uiFail = window.uiFail || uiFail; // for older code that calls window.uiFail
+
+  App.dom = App.dom || {};
+
+  App.dom.init = function initDom() {
+    // If already initialized, reuse
+    if (App.el && App.el._inited) return App.el;
+
     const el = {
       // Buttons & inputs
-      cameraBtn: document.getElementById("cameraBtn"),
-      filesBtn: document.getElementById("filesBtn"),
-      cameraInput: document.getElementById("cameraInput"),
-      filesInput: document.getElementById("filesInput"),
+      cameraBtn: must("cameraBtn"),
+      filesBtn: must("filesBtn"),
+      cameraInput: must("cameraInput"),
+      filesInput: must("filesInput"),
 
       // Carousel
-      carouselWrap: document.getElementById("carouselWrap"),
-      carousel: document.getElementById("carousel"),
-      pagesCount: document.getElementById("pagesCount"),
-      pageIndex: document.getElementById("pageIndex"),
+      carouselWrap: must("carouselWrap"),
+      carousel: must("carousel"),
+      pagesCount: must("pagesCount"),
+      pageIndex: must("pageIndex"),
 
       // Analyze + hints
-      analyzeBtn: document.getElementById("analyzeBtn"),
-      zeroHint: document.getElementById("zeroHint"),
-      limitHint: document.getElementById("limitHint"),
+      analyzeBtn: must("analyzeBtn"),
+      zeroHint: must("zeroHint"),
+      limitHint: must("limitHint"),
 
       // Progress
-      progressBox: document.getElementById("progressBox"),
-      pLine1: document.getElementById("pLine1"),
-      pLine2: document.getElementById("pLine2"),
+      progressBox: must("progressBox"),
+      pLine1: must("pLine1"),
+      pLine2: must("pLine2"),
 
-      // Quality
-      qualityPanel: document.getElementById("qualityPanel"),
-      qualityTitle: document.getElementById("qualityTitle"),
-      qualityText: document.getElementById("qualityText"),
-      showBadBtn: document.getElementById("showBadBtn"),
-      deleteCurrentBadBtn: document.getElementById("deleteCurrentBadBtn"),
-      deleteBadBtn: document.getElementById("deleteBadBtn"),
-      showWarnBtn: document.getElementById("showWarnBtn"),
-      qualityList: document.getElementById("qualityList"),
+      // Quality panel
+      qualityPanel: must("qualityPanel"),
+      qualityTitle: must("qualityTitle"),
+      qualityText: must("qualityText"),
+      showBadBtn: must("showBadBtn"),
+      deleteCurrentBadBtn: must("deleteCurrentBadBtn"),
+      deleteBadBtn: must("deleteBadBtn"),
+      showWarnBtn: must("showWarnBtn"),
+      qualityList: must("qualityList"),
 
       // Result
-      resultBox: document.getElementById("resultBox"),
-      doneBanner: document.getElementById("doneBanner"),
-      resultTitle: document.getElementById("resultTitle"),
-      resultSupport: document.getElementById("resultSupport"),
-      resultDetails: document.getElementById("resultDetails"),
-      aboutText: document.getElementById("aboutText"),
+      resultBox: must("resultBox"),
+      doneBanner: must("doneBanner"),
+      resultTitle: must("resultTitle"),
+      resultSupport: must("resultSupport"),
+      resultDetails: must("resultDetails"),
+      aboutText: must("aboutText"),
 
-      // Texts
-      maxPagesText: document.getElementById("maxPagesText")
+      // Optional debug (may not exist)
+      debugBox: document.getElementById("debugBox") || null,
+
+      _inited: true
     };
 
     App.el = el;
 
-    // Set MAX_PAGES text
-    if (el.maxPagesText) el.maxPagesText.textContent = String(App.config.MAX_PAGES);
+    // Base UI helpers used by other modules
+    App.uiBase = App.uiBase || {};
+
+    App.uiBase.setProgress = App.uiBase.setProgress || function setProgress(line1, line2) {
+      safeText(el.pLine1, line1 || "");
+      safeText(el.pLine2, line2 || "");
+    };
+
+    App.uiBase.showZeroHintIfNeeded = App.uiBase.showZeroHintIfNeeded || function showZeroHintIfNeeded() {
+      // If state exists: use it; else fallback to carousel content
+      const count = (App.state && Array.isArray(App.state.pages)) ? App.state.pages.length : 0;
+      try { el.zeroHint.style.display = (count === 0) ? "block" : "none"; } catch (_) {}
+    };
+
+    App.uiBase.showLimitHint = App.uiBase.showLimitHint || function showLimitHint(show) {
+      try { el.limitHint.style.display = show ? "block" : "none"; } catch (_) {}
+    };
+
+    App.uiBase.setLocked = App.uiBase.setLocked || function setLocked(v) {
+      try {
+        el.cameraBtn.disabled = !!v;
+        el.filesBtn.disabled = !!v;
+      } catch (_) {}
+
+      try {
+        // analyze button is additionally controlled by other modules; here only basic lock
+        if (v) el.analyzeBtn.disabled = true;
+      } catch (_) {}
+    };
+
+    App.uiBase.resetUiAfterDataChange = App.uiBase.resetUiAfterDataChange || function resetUiAfterDataChange() {
+      // Hide panels that depend on content; other modules will re-render
+      try { el.resultBox.style.display = "none"; } catch (_) {}
+      try { el.progressBox.style.display = "none"; } catch (_) {}
+    };
+
+    return el;
+  };
+
+  // Auto-init ASAP (prevents "Not ready: App.el")
+  function boot() {
+    try {
+      App.dom.init();
+      // optional: initial hints
+      try { App.uiBase.showZeroHintIfNeeded(); } catch (_) {}
+    } catch (e) {
+      uiFail("Ошибка инициализации DOM. Проверь index.html (id элементов) и порядок скриптов.", e);
+    }
   }
-};
 
-App.uiBase = {
-  escapeHtml(s) {
-    return String(s || "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  },
-
-  showLimitHint(v) {
-    App.el.limitHint.style.display = v ? "block" : "none";
-  },
-
-  showZeroHintIfNeeded() {
-    const pages = App.state.pages;
-    App.el.zeroHint.style.display = (pages.length === 0) ? "block" : "none";
-    App.el.analyzeBtn.disabled = App.state.isLocked || pages.length === 0 || App.stateApi.hasBadPages();
-  },
-
-  setLocked(v) {
-    App.state.isLocked = v;
-
-    const el = App.el;
-    el.cameraBtn.disabled = v;
-    el.filesBtn.disabled  = v;
-
-    el.carousel.querySelectorAll("button[data-del]").forEach(btn => btn.disabled = v);
-
-    el.showBadBtn.disabled = v;
-    el.deleteCurrentBadBtn.disabled = v;
-    el.deleteBadBtn.disabled = v;
-    el.showWarnBtn.disabled = v;
-
-    el.analyzeBtn.disabled = v || App.state.pages.length === 0 || App.stateApi.hasBadPages();
-  },
-
-  resetUiAfterDataChange() {
-    App.el.resultBox.style.display = "none";
-    App.el.progressBox.style.display = "none";
-    App.uiBase.showLimitHint(false);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot, { once: true });
+  } else {
+    boot();
   }
-};
-
+})();
