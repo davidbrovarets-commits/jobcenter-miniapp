@@ -1,12 +1,20 @@
-// main.js — orchestrator (safe). Picker opens via <label for="..."> (iOS-friendly)
+// main.js — orchestrator (no dependency on App.el)
 
 (function () {
   const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
   try { if (tg) { tg.ready(); tg.expand(); } } catch (_) {}
 
+  function must(id) {
+    const el = document.getElementById(id);
+    if (!el) throw new Error("Missing DOM element: #" + id);
+    return el;
+  }
+
   function uiError(msg, err) {
     console.error(msg, err || "");
+    // if you have uiFail somewhere, use it
     try {
+      if (typeof window.uiFail === "function") return window.uiFail(msg, err);
       if (window.App && window.App.uiBase && typeof window.App.uiBase.uiFail === "function") {
         return window.App.uiBase.uiFail(msg, err);
       }
@@ -14,61 +22,71 @@
     alert(msg + (err && err.message ? ("\n\n" + err.message) : ""));
   }
 
-  function waitFor(predicate, timeoutMs = 8000, stepMs = 50) {
-    const t0 = Date.now();
-    return new Promise((resolve, reject) => {
-      const tick = () => {
-        try {
-          const v = predicate();
-          if (v) return resolve(v);
-        } catch (_) {}
-        if (Date.now() - t0 > timeoutMs) return reject(new Error("Not ready: App.el"));
-        setTimeout(tick, stepMs);
-      };
-      tick();
-    });
-  }
-
   function getAddFilesFn() {
+    // support several export styles
     if (typeof window.addFiles === "function") return window.addFiles;
+    if (window.ImagePipeline && typeof window.ImagePipeline.addFiles === "function") return window.ImagePipeline.addFiles;
+    if (window.imagePipeline && typeof window.imagePipeline.addFiles === "function") return window.imagePipeline.addFiles;
     if (window.App && window.App.images && typeof window.App.images.addFiles === "function") return window.App.images.addFiles;
     if (window.App && window.App.imagePipeline && typeof window.App.imagePipeline.addFiles === "function") return window.App.imagePipeline.addFiles;
     return null;
   }
 
-  async function boot() {
-    await waitFor(() => window.App && window.App.el && window.App.el.cameraInput && window.App.el.filesInput);
+  function bind() {
+    const cameraInput = must("cameraInput");
+    const filesInput  = must("filesInput");
+    const carousel     = must("carousel");
+    const analyzeBtn   = must("analyzeBtn");
 
-    const el = window.App.el;
+    // IMPORTANT:
+    // Picker opens via <label for="..."> in index.html, so here we only handle change events.
 
-    el.cameraInput.addEventListener("change", async () => {
+    cameraInput.addEventListener("change", async () => {
       try {
         const addFiles = getAddFilesFn();
-        if (!addFiles) throw new Error("addFiles() is not available (check image-pipeline.js export).");
-        await addFiles(el.cameraInput.files);
+        if (!addFiles) throw new Error("addFiles() is not available. Check image-pipeline.js export.");
+        await addFiles(cameraInput.files);
       } catch (e) {
         uiError("Ошибка: не удалось добавить фото. (addFiles)", e);
       } finally {
-        try { el.cameraInput.value = ""; } catch (_) {}
+        try { cameraInput.value = ""; } catch (_) {}
       }
     });
 
-    el.filesInput.addEventListener("change", async () => {
+    filesInput.addEventListener("change", async () => {
       try {
         const addFiles = getAddFilesFn();
-        if (!addFiles) throw new Error("addFiles() is not available (check image-pipeline.js export).");
-        await addFiles(el.filesInput.files);
+        if (!addFiles) throw new Error("addFiles() is not available. Check image-pipeline.js export.");
+        await addFiles(filesInput.files);
       } catch (e) {
         uiError("Ошибка: не удалось добавить файлы. (addFiles)", e);
       } finally {
-        try { el.filesInput.value = ""; } catch (_) {}
+        try { filesInput.value = ""; } catch (_) {}
+      }
+    });
+
+    // carousel scroll -> counters if exist
+    carousel.addEventListener("scroll", () => {
+      try { if (typeof window.updateCounters === "function") window.updateCounters(); } catch (_) {}
+    });
+
+    // analysis (if you have a global entry)
+    analyzeBtn.addEventListener("click", async () => {
+      try {
+        if (typeof window.runAnalysis === "function") {
+          await window.runAnalysis();
+        }
+      } catch (e) {
+        uiError("Ошибка анализа.", e);
       }
     });
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => boot().catch(e => uiError("Ошибка инициализации.", e)));
+    document.addEventListener("DOMContentLoaded", () => {
+      try { bind(); } catch (e) { uiError("Ошибка инициализации.", e); }
+    });
   } else {
-    boot().catch(e => uiError("Ошибка инициализации.", e));
+    try { bind(); } catch (e) { uiError("Ошибка инициализации.", e); }
   }
 })();
