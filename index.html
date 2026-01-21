@@ -4,18 +4,25 @@
   <meta charset="UTF-8" />
   <title>Jobcenter Letter Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="./style.css?v=211" />
+  <link rel="stylesheet" href="./style.css?v=212" />
 
-  <!-- ВАЖНО: стиль для file input (не display:none) -->
   <style>
-    .visuallyHiddenFileInput{
-      position: fixed;
+    /* iOS/Telegram: НЕ display:none */
+    .fileInputNative {
+      position: absolute;
       left: -9999px;
       top: 0;
       width: 1px;
       height: 1px;
-      opacity: 0.001;
-      pointer-events: none;
+      opacity: 0.01;
+    }
+
+    /* label выглядит как кнопка (используем твои .btn стили) */
+    .btnLabel {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
     }
   </style>
 </head>
@@ -33,19 +40,25 @@
         Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.
       </p>
 
+      <!-- Нативные input -->
+      <input id="cameraInput" class="fileInputNative" type="file" accept="image/*" capture="environment" />
+      <input id="filesInput"  class="fileInputNative" type="file" accept="image/*" multiple />
+
+      <!-- Вместо кнопок: LABEL (нативный триггер) -->
       <div class="actionsRow">
-        <button id="cameraBtn" class="btn" type="button">Сделать фото</button>
-        <button id="filesBtn" class="btn" type="button">Выбрать файлы</button>
+        <label id="cameraBtn" class="btn btnLabel" for="cameraInput" role="button" tabindex="0">
+          Сделать фото
+        </label>
+
+        <label id="filesBtn" class="btn btnLabel" for="filesInput" role="button" tabindex="0">
+          Выбрать файлы
+        </label>
       </div>
 
       <div class="smallNote">
         <b>Важно:</b> PDF в Telegram Mini App часто не обрабатывается. Для надёжного результата используйте фото/скрин страниц письма.<br>
         <b>Лимит:</b> максимум <span id="maxPagesText">15</span> страниц за один анализ.
       </div>
-
-      <!-- НЕ display:none! -->
-      <input id="cameraInput" class="visuallyHiddenFileInput" type="file" accept="image/*" capture="environment" />
-      <input id="filesInput"  class="visuallyHiddenFileInput" type="file" accept="image/*" multiple />
 
       <!-- Карусель -->
       <div id="carouselWrap" class="carouselWrap">
@@ -119,26 +132,26 @@
         </div>
       </div>
 
-      <small class="version">v2.11 · iOS file input fix (no display:none)</small>
+      <small class="version">v2.12 · iOS native label→input picker</small>
     </div>
   </div>
 
   <!-- 1) Telegram -->
   <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
   <!-- 2) Tesseract -->
-  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=211"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=212"></script>
 
-  <!-- 3) Modules -->
-  <script defer src="./config.js?v=211"></script>
-  <script defer src="./state.js?v=211"></script>
-  <script defer src="./dom.js?v=211"></script>
-  <script defer src="./ui-carousel.js?v=211"></script>
-  <script defer src="./ui-quality.js?v=211"></script>
-  <script defer src="./image-pipeline.js?v=211"></script>
-  <script defer src="./ocr.js?v=211"></script>
-  <script defer src="./analysis.js?v=211"></script>
+  <!-- 3) Modules (order matters) -->
+  <script defer src="./config.js?v=212"></script>
+  <script defer src="./state.js?v=212"></script>
+  <script defer src="./dom.js?v=212"></script>
+  <script defer src="./ui-carousel.js?v=212"></script>
+  <script defer src="./ui-quality.js?v=212"></script>
+  <script defer src="./image-pipeline.js?v=212"></script>
+  <script defer src="./ocr.js?v=212"></script>
+  <script defer src="./analysis.js?v=212"></script>
 
   <!-- 4) main -->
-  <script defer src="./main.js?v=211"></script>
+  <script defer src="./main.js?v=212"></script>
 </body>
 </html>
