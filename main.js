@@ -1,4 +1,4 @@
-// main.js — orchestrator (safe, waits for App.el) + iOS picker fix
+// main.js — orchestrator (safe). Picker opens via <label for="..."> (iOS-friendly)
 
 (function () {
   const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
@@ -11,7 +11,6 @@
         return window.App.uiBase.uiFail(msg, err);
       }
     } catch (_) {}
-    try { if (typeof window.uiFail === "function") return window.uiFail(msg, err); } catch (_) {}
     alert(msg + (err && err.message ? ("\n\n" + err.message) : ""));
   }
 
@@ -37,32 +36,10 @@
     return null;
   }
 
-  function openFilePicker(inputEl) {
-    // iOS/WebKit: showPicker() часто работает лучше
-    if (!inputEl) throw new Error("Missing file input element");
-    if (typeof inputEl.showPicker === "function") {
-      inputEl.showPicker();
-      return;
-    }
-    inputEl.click();
-  }
-
   async function boot() {
-    await waitFor(() => window.App && window.App.el && window.App.el.cameraBtn && window.App.el.filesBtn);
+    await waitFor(() => window.App && window.App.el && window.App.el.cameraInput && window.App.el.filesInput);
 
-    const App = window.App;
-    const el = App.el;
-
-    // на всякий случай разблокируем
-    try { el.cameraBtn.disabled = false; el.filesBtn.disabled = false; } catch (_) {}
-
-    el.cameraBtn.addEventListener("click", () => {
-      try { openFilePicker(el.cameraInput); } catch (e) { uiError("Не удалось открыть камеру.", e); }
-    });
-
-    el.filesBtn.addEventListener("click", () => {
-      try { openFilePicker(el.filesInput); } catch (e) { uiError("Не удалось открыть выбор файлов.", e); }
-    });
+    const el = window.App.el;
 
     el.cameraInput.addEventListener("change", async () => {
       try {
