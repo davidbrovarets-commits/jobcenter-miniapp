@@ -3,10 +3,13 @@ window.App = window.App || {};
 
 App.analysis = {
   findDeadline(text) {
+    // simplest date pick
     const m1 = text.match(/\b(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
     if (m1) return m1[1];
-    const m2 = text.match(/\b(bis zum|spätestens am|frist|fristen|bis spätestens)\s+(\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
+
+    const m2 = text.match(/\b(bis zum|spätestens am|frist|fristen|bis spätestens)\s+(\d{1,2}\.\d{1,2}\.\d{2,4})\b/i);
     if (m2) return m2[2];
+
     return "";
   },
 
@@ -52,16 +55,16 @@ App.analysis = {
   },
 
   showResult(res, combinedText) {
-    const el = App.el;
+    const { resultBox, doneBanner, resultTitle, resultSupport, resultDetails, aboutText } = App.el;
 
     if (res.kind === "needAction") {
-      el.resultTitle.textContent = "✅ Требуется действие";
-      el.resultSupport.textContent = "Это нормально. Ниже — пояснение, что именно требуется.";
+      resultTitle.textContent = "✅ Требуется действие";
+      resultSupport.textContent = "Это нормально. Ниже — пояснение, что именно требуется.";
 
       const sig = res.signals.length ? ("Найдены сигналы: " + res.signals.join(", ") + "\n") : "";
       const dl = res.deadline ? ("Срок, указанный в тексте: " + res.deadline + "\n") : "";
 
-      el.resultDetails.textContent =
+      resultDetails.textContent =
         sig + dl +
         "Что сделать:\n" +
         "• проверьте, просят ли предоставить документы (Unterlagen / Nachweis),\n" +
@@ -69,23 +72,22 @@ App.analysis = {
         "• или заполнить форму (Formular / ausfüllen).\n";
     }
     else if (res.kind === "noAction") {
-      el.resultTitle.textContent = "❌ Действие не требуется";
-      el.resultSupport.textContent = "Это информационное письмо. Обычно в таком случае никаких действий не требуется.";
-      el.resultDetails.textContent = "Если вы ожидаете запрос документов или приглашение — проверьте, не пропущена ли какая-то страница.";
+      resultTitle.textContent = "❌ Действие не требуется";
+      resultSupport.textContent = "Это информационное письмо. Обычно в таком случае никаких действий не требуется.";
+      resultDetails.textContent = "Если вы ожидаете запрос документов или приглашение — проверьте, не пропущена ли какая-то страница.";
     }
     else {
-      el.resultTitle.textContent = "⚠️ Неясно — нужна проверка";
-      el.resultSupport.textContent = "В письме есть неоднозначные формулировки. Ниже — на что стоит обратить внимание.";
-      el.resultDetails.textContent =
+      resultTitle.textContent = "⚠️ Неясно — нужна проверка";
+      resultSupport.textContent = "В письме есть неоднозначные формулировки. Ниже — на что стоит обратить внимание.";
+      resultDetails.textContent =
         "Как улучшить результат:\n" +
         "• добавьте страницу со сроком или просьбой (Bitte / Frist / Termin)\n" +
         "• переснимите страницы ближе к тексту, без бликов и теней\n";
     }
 
-    el.aboutText.textContent = App.analysis.aboutLetter(combinedText);
+    aboutText.textContent = App.analysis.aboutLetter(combinedText);
 
-    el.doneBanner.style.display = "block";
-    el.resultBox.style.display = "block";
+    doneBanner.style.display = "block";
+    resultBox.style.display = "block";
   }
 };
-
