@@ -1,150 +1,84 @@
-// dom.js — DOM init + base UI helpers (safe)
-// Ensures App.el exists BEFORE other modules use it.
+// dom.js
+window.App = window.App || {};
 
-(function () {
-  window.App = window.App || {};
-
-  function must(id) {
-    const el = document.getElementById(id);
-    if (!el) throw new Error(`Missing DOM element: #${id}`);
-    return el;
-  }
-
-  function safeText(el, txt) {
-    try {
-      if (el) el.textContent = String(txt);
-    } catch (_) {}
-  }
-
-  // Public UI fail (others can call)
-  function uiFail(msg, err) {
-    try { console.error(msg, err || ""); } catch (_) {}
-
-    // Try to show in debugBox if exists
-    try {
-      const dbg = App.el && App.el.debugBox ? App.el.debugBox : document.getElementById("debugBox");
-      if (dbg) {
-        dbg.hidden = false;
-        dbg.textContent = `${msg}\n${(err && err.message) ? err.message : (err || "")}`.trim();
-        return;
-      }
-    } catch (_) {}
-
-    // Fallback alert (iOS-friendly)
-    try { alert(msg); } catch (_) {}
-  }
-
-  App.uiFail = App.uiFail || uiFail;
-  window.uiFail = window.uiFail || uiFail; // for older code that calls window.uiFail
-
-  App.dom = App.dom || {};
-
-  App.dom.init = function initDom() {
-    // If already initialized, reuse
-    if (App.el && App.el._inited) return App.el;
+App.dom = {
+  init() {
+    const byId = (id) => document.getElementById(id);
 
     const el = {
-      // Buttons & inputs
-      cameraBtn: must("cameraBtn"),
-      filesBtn: must("filesBtn"),
-      cameraInput: must("cameraInput"),
-      filesInput: must("filesInput"),
+      // Labels/buttons & inputs
+      cameraLabel: byId("cameraLabel"),
+      filesLabel: byId("filesLabel"),
+      cameraInput: byId("cameraInput"),
+      filesInput: byId("filesInput"),
+
+      maxPagesText: byId("maxPagesText"),
 
       // Carousel
-      carouselWrap: must("carouselWrap"),
-      carousel: must("carousel"),
-      pagesCount: must("pagesCount"),
-      pageIndex: must("pageIndex"),
+      carouselWrap: byId("carouselWrap"),
+      carousel: byId("carousel"),
+      pagesCount: byId("pagesCount"),
+      pageIndex: byId("pageIndex"),
 
       // Analyze + hints
-      analyzeBtn: must("analyzeBtn"),
-      zeroHint: must("zeroHint"),
-      limitHint: must("limitHint"),
+      analyzeBtn: byId("analyzeBtn"),
+      zeroHint: byId("zeroHint"),
+      limitHint: byId("limitHint"),
 
       // Progress
-      progressBox: must("progressBox"),
-      pLine1: must("pLine1"),
-      pLine2: must("pLine2"),
+      progressBox: byId("progressBox"),
+      pLine1: byId("pLine1"),
+      pLine2: byId("pLine2"),
 
       // Quality panel
-      qualityPanel: must("qualityPanel"),
-      qualityTitle: must("qualityTitle"),
-      qualityText: must("qualityText"),
-      showBadBtn: must("showBadBtn"),
-      deleteCurrentBadBtn: must("deleteCurrentBadBtn"),
-      deleteBadBtn: must("deleteBadBtn"),
-      showWarnBtn: must("showWarnBtn"),
-      qualityList: must("qualityList"),
+      qualityPanel: byId("qualityPanel"),
+      qualityTitle: byId("qualityTitle"),
+      qualityText: byId("qualityText"),
+      showBadBtn: byId("showBadBtn"),
+      deleteCurrentBadBtn: byId("deleteCurrentBadBtn"),
+      deleteBadBtn: byId("deleteBadBtn"),
+      showWarnBtn: byId("showWarnBtn"),
+      qualityList: byId("qualityList"),
 
       // Result
-      resultBox: must("resultBox"),
-      doneBanner: must("doneBanner"),
-      resultTitle: must("resultTitle"),
-      resultSupport: must("resultSupport"),
-      resultDetails: must("resultDetails"),
-      aboutText: must("aboutText"),
-
-      // Optional debug (may not exist)
-      debugBox: document.getElementById("debugBox") || null,
-
-      _inited: true
+      resultBox: byId("resultBox"),
+      doneBanner: byId("doneBanner"),
+      resultTitle: byId("resultTitle"),
+      resultSupport: byId("resultSupport"),
+      resultDetails: byId("resultDetails"),
+      aboutText: byId("aboutText")
     };
+
+    // Required check (hard fail early)
+    const required = [
+      "cameraInput","filesInput",
+      "carouselWrap","carousel","pagesCount","pageIndex",
+      "analyzeBtn","zeroHint","limitHint",
+      "progressBox","pLine1","pLine2",
+      "qualityPanel","qualityTitle","qualityText",
+      "showBadBtn","deleteCurrentBadBtn","deleteBadBtn","showWarnBtn","qualityList",
+      "resultBox","doneBanner","resultTitle","resultSupport","resultDetails","aboutText",
+      "maxPagesText"
+    ];
+
+    const missing = required.filter(k => !el[k]);
+    if (missing.length) {
+      throw new Error("Missing DOM elements: " + missing.join(", "));
+    }
 
     App.el = el;
 
-    // Base UI helpers used by other modules
-    App.uiBase = App.uiBase || {};
+    // set max pages text
+    try {
+      App.el.maxPagesText.textContent = String(App.cfg.MAX_PAGES);
+    } catch(_) {}
 
-    App.uiBase.setProgress = App.uiBase.setProgress || function setProgress(line1, line2) {
-      safeText(el.pLine1, line1 || "");
-      safeText(el.pLine2, line2 || "");
-    };
-
-    App.uiBase.showZeroHintIfNeeded = App.uiBase.showZeroHintIfNeeded || function showZeroHintIfNeeded() {
-      // If state exists: use it; else fallback to carousel content
-      const count = (App.state && Array.isArray(App.state.pages)) ? App.state.pages.length : 0;
-      try { el.zeroHint.style.display = (count === 0) ? "block" : "none"; } catch (_) {}
-    };
-
-    App.uiBase.showLimitHint = App.uiBase.showLimitHint || function showLimitHint(show) {
-      try { el.limitHint.style.display = show ? "block" : "none"; } catch (_) {}
-    };
-
-    App.uiBase.setLocked = App.uiBase.setLocked || function setLocked(v) {
-      try {
-        el.cameraBtn.disabled = !!v;
-        el.filesBtn.disabled = !!v;
-      } catch (_) {}
-
-      try {
-        // analyze button is additionally controlled by other modules; here only basic lock
-        if (v) el.analyzeBtn.disabled = true;
-      } catch (_) {}
-    };
-
-    App.uiBase.resetUiAfterDataChange = App.uiBase.resetUiAfterDataChange || function resetUiAfterDataChange() {
-      // Hide panels that depend on content; other modules will re-render
-      try { el.resultBox.style.display = "none"; } catch (_) {}
-      try { el.progressBox.style.display = "none"; } catch (_) {}
+    // Provide consistent UI error handler (used by main.js)
+    window.uiFail = function (msg, err) {
+      console.error(msg, err || "");
+      try { alert(msg); } catch(_) {}
     };
 
     return el;
-  };
-
-  // Auto-init ASAP (prevents "Not ready: App.el")
-  function boot() {
-    try {
-      App.dom.init();
-      // optional: initial hints
-      try { App.uiBase.showZeroHintIfNeeded(); } catch (_) {}
-    } catch (e) {
-      uiFail("Ошибка инициализации DOM. Проверь index.html (id элементов) и порядок скриптов.", e);
-    }
   }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot, { once: true });
-  } else {
-    boot();
-  }
-})();
+};
