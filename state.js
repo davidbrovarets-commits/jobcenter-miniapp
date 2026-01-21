@@ -44,4 +44,3 @@ App.stateApi = {
     return App.state.pages.findIndex(p => p.status === "warn");
   }
 };
-
