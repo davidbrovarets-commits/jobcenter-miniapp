@@ -2,57 +2,7 @@
 window.App = window.App || {};
 
 App.ocr = {
-  async getWorker(lang) {
-    const s = App.state;
-    const c = App.config;
-
-    if (!lang) lang = c.OCR_LANG_FAST;
-
-    App.el.pLine1.textContent = "Анализ идёт";
-    App.el.pLine2.textContent = "Подготовка OCR…";
-
-    // Create once
-    if (!s.ocrWorker) {
-      // IMPORTANT: no logger here -> avoids DataCloneError on Telegram iOS
-      s.ocrWorker = await Tesseract.createWorker({
-        workerPath: c.TESS_WORKER_PATH,
-        corePath: c.TESS_CORE_PATH,
-        langPath: c.TESS_LANG_PATH
-      });
-
-      // Init default language
-      await s.ocrWorker.loadLanguage(lang);
-      await s.ocrWorker.initialize(lang);
-      await s.ocrWorker.setParameters({ tessedit_pageseg_mode: "6" });
-
-      s.ocrLangInited = lang;
-      return s.ocrWorker;
-    }
-
-    // Same language
-    if (s.ocrLangInited === lang) return s.ocrWorker;
-
-    // Switch language (safe)
-    App.el.pLine1.textContent = "Анализ идёт";
-    App.el.pLine2.textContent = `OCR: переключаем язык (${lang})…`;
-
-    await s.ocrWorker.loadLanguage(lang);
-    await s.ocrWorker.initialize(lang);
-    await s.ocrWorker.setParameters({ tessedit_pageseg_mode: "6" });
-
-    s.ocrLangInited = lang;
-    return s.ocrWorker;
-  },
-
-  async closeWorker() {
-    const s = App.state;
-    if (!s.ocrWorker) return;
-    try { await s.ocrWorker.terminate(); } catch(_) {}
-    s.ocrWorker = null;
-    s.ocrLangInited = null;
-  },
-
-  cleanText(t) {
+  cleanOcrText(t) {
     let s = (t || "");
     s = s.replace(/[^\S\r\n]+/g, " ");
     s = s.replace(/\n{3,}/g, "\n\n");
@@ -62,7 +12,48 @@ App.ocr = {
     return s;
   },
 
-  evaluateQuality(text, confidence) {
+  async estimateInkRatio(blob) {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      img.src = url;
+      await new Promise((res, rej) => {
+        img.onload = res;
+        img.onerror = () => rej(new Error("img load failed"));
+      });
+
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+
+      const maxSide = 220;
+      const scale = Math.min(1, maxSide / Math.max(w, h));
+      const nw = Math.max(1, Math.round(w * scale));
+      const nh = Math.max(1, Math.round(h * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = nw;
+      canvas.height = nh;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0, nw, nh);
+
+      const data = ctx.getImageData(0, 0, nw, nh).data;
+
+      let ink = 0;
+      const total = nw * nh;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const lum = (0.2126*r + 0.7152*g + 0.0722*b) / 255; // 0..1
+        if (lum < 0.92) ink++;
+      }
+
+      return ink / Math.max(1, total);
+    } finally {
+      try { URL.revokeObjectURL(url); } catch(_) {}
+    }
+  },
+
+  evaluatePageQuality(text, confidence) {
     const t = text || "";
     const textLen = t.length;
 
@@ -79,17 +70,15 @@ App.ocr = {
       "unterlagen","nachweis","nachweisen","einreichen","vorlegen","mitwirkung",
       "anhörung","aufforderung","fehlende unterlagen","formular","ausfüllen",
       "summe","euro","leistungen","regelbedarf","mehrbedarf","bedarf",
-      "kundennummer","aktenzeichen","bedarfsgemeinschaft","bg-nummer"
+      "kundennummer","aktenzeichen","bedarfsgemeinschaft","bg-nummer",
+      "jobcenter","bürgergeld","bescheid","änderungsbescheid"
     ];
 
     const hasKeySignals = keyPatterns.some(k => low.includes(k));
 
     const conf = (confidence !== null && typeof confidence === "number") ? confidence : null;
     const confBad = (conf !== null && conf < 50);
-    const confOk  = (conf === null || conf >= 55);
-
     const ratioBad = (alphaNumRatio < 0.45);
-    const ratioOk  = (alphaNumRatio >= 0.55);
 
     const tooShort = (textLen < 80);
     const veryShort = (textLen < 35);
@@ -98,50 +87,82 @@ App.ocr = {
       return { status: "bad", reason: "Обнаружена плохо читаемая страница. Рекомендуем заменить для точного результата." };
     }
 
-    if (tooShort && confOk && ratioOk) {
-      return { status: "warn", reason: "На странице мало текста. Анализ возможен. Для точности можно переснять ближе к тексту." };
-    }
-
-    if (tooShort && hasKeySignals && !confBad && !ratioBad) {
-      return { status: "warn", reason: "Текст распознан частично, но найдены сигналы. Анализ возможен. Для точности лучше переснять страницу." };
-    }
-
-    if (confBad || ratioBad) {
+    if ((confBad || ratioBad) && !hasKeySignals) {
       return { status: "bad", reason: "Обнаружена плохо читаемая страница. Рекомендуем заменить для точного результата." };
     }
 
     if (tooShort) {
-      return { status: "warn", reason: "Текста немного. Анализ возможен. Для точности добавьте страницу со сроком или просьбой (Bitte / Frist / Termin), если она есть." };
+      return { status: "warn", reason: "Текста немного. Анализ возможен, но для точности лучше переснять страницу ближе к тексту." };
     }
 
     return { status: "ok", reason: "" };
   },
 
+  async getWorker(lang) {
+    const cfg = App.cfg;
+
+    const setProgress = (l1, l2) => {
+      App.el.pLine1.textContent = l1;
+      App.el.pLine2.textContent = l2;
+    };
+
+    if (!App.state.ocrWorker) {
+      setProgress("Анализ идёт", "Запускаем OCR");
+
+      App.state.ocrWorker = await Tesseract.createWorker(lang, 1, {
+        logger: (m) => {
+          const pct = (typeof m.progress === "number") ? Math.round(m.progress * 100) : null;
+          setProgress("Анализ идёт", (pct !== null) ? `${m.status}: ${pct}%` : `${m.status}`);
+        },
+        workerPath: cfg.TESS_WORKER_PATH,
+        corePath: cfg.TESS_CORE_PATH,
+        langPath: cfg.TESS_LANG_PATH
+      });
+
+      App.state.ocrLangInited = lang;
+      return App.state.ocrWorker;
+    }
+
+    if (App.state.ocrLangInited === lang) return App.state.ocrWorker;
+
+    setProgress("Анализ идёт", "Переключаем язык OCR");
+    await App.state.ocrWorker.loadLanguage(lang);
+    await App.state.ocrWorker.initialize(lang);
+    App.state.ocrLangInited = lang;
+
+    return App.state.ocrWorker;
+  },
+
+  async closeWorker() {
+    if (!App.state.ocrWorker) return;
+    try { await App.state.ocrWorker.terminate(); } catch(_) {}
+    App.state.ocrWorker = null;
+    App.state.ocrLangInited = null;
+  },
+
   async ocrOnePage(pageObj, idx, total) {
-    const c = App.config;
+    const cfg = App.cfg;
 
     App.el.pLine1.textContent = "Анализ идёт";
-    App.el.pLine2.textContent = `Обрабатываем страницы: ${idx + 1} из ${total}`;
+    App.el.pLine2.textContent = "Обрабатываем страницы: " + (idx + 1) + " из " + total;
 
-    // 1) precheck inkRatio
+    // 1) precheck ink ratio
     let inkRatio = 0;
     try {
-      inkRatio = await App.images.estimateInkRatio(pageObj.fastOcrBlob || pageObj.ocrBlob);
+      inkRatio = await App.ocr.estimateInkRatio(pageObj.fastOcrBlob || pageObj.ocrBlob);
     } catch(_) {
       inkRatio = 0.02;
     }
     pageObj.metrics = Object.assign({}, pageObj.metrics, { inkRatio });
 
-    // 2) VERY blank -> micro OCR
-    if (inkRatio <= c.INK_VERY_LOW) {
-      const worker = await App.ocr.getWorker(c.OCR_LANG_FAST);
+    // 2) very blank -> micro OCR
+    if (inkRatio <= cfg.INK_VERY_LOW) {
+      const w = await App.ocr.getWorker(cfg.OCR_LANG_FAST);
+      const r = await w.recognize(pageObj.fastOcrBlob || pageObj.ocrBlob);
 
-      App.el.pLine2.textContent = `OCR (fast) — страница ${idx + 1}/${total}`;
-      const r = await worker.recognize(pageObj.fastOcrBlob || pageObj.ocrBlob);
-
-      const rawText = (r.data && r.data.text) ? r.data.text : "";
-      const cleaned = App.ocr.cleanText(rawText);
-      const conf = (r.data && typeof r.data.confidence === "number") ? r.data.confidence : null;
+      const rawText = r?.data?.text || "";
+      const cleaned = App.ocr.cleanOcrText(rawText);
+      const conf = (typeof r?.data?.confidence === "number") ? r.data.confidence : null;
 
       pageObj.ocrText = cleaned;
       pageObj.ocrConfidence = conf;
@@ -153,41 +174,36 @@ App.ocr = {
         return;
       }
 
-      const q = App.ocr.evaluateQuality(cleaned, conf);
+      const q = App.ocr.evaluatePageQuality(cleaned, conf);
       pageObj.status = q.status;
       pageObj.reason = q.reason || "";
       return;
     }
 
-    // 3) normal OCR, expand to deu+rus if Cyrillic
-    let worker = await App.ocr.getWorker(c.OCR_LANG_FAST);
+    // 3) normal OCR (fast)
+    let w = await App.ocr.getWorker(cfg.OCR_LANG_FAST);
+    const r1 = await w.recognize((inkRatio <= cfg.INK_LOW) ? (pageObj.fastOcrBlob || pageObj.ocrBlob) : pageObj.ocrBlob);
 
-    App.el.pLine2.textContent = `OCR (deu) — страница ${idx + 1}/${total}`;
-    const r1 = await worker.recognize((inkRatio <= c.INK_LOW) ? (pageObj.fastOcrBlob || pageObj.ocrBlob) : pageObj.ocrBlob);
+    const rawText1 = r1?.data?.text || "";
+    let cleaned = App.ocr.cleanOcrText(rawText1);
+    let conf = (typeof r1?.data?.confidence === "number") ? r1.data.confidence : null;
 
-    const rawText1 = (r1.data && r1.data.text) ? r1.data.text : "";
-    let cleaned = App.ocr.cleanText(rawText1);
-    let conf = (r1.data && typeof r1.data.confidence === "number") ? r1.data.confidence : null;
-
+    // 4) if Cyrillic found -> rerun full langs
     const hasCyr = /[А-Яа-яЁёІіЇїЄє]/.test(cleaned);
-
     if (hasCyr) {
-      worker = await App.ocr.getWorker(c.OCR_LANG_FULL);
+      w = await App.ocr.getWorker(cfg.OCR_LANG_FULL);
+      const r2 = await w.recognize(pageObj.ocrBlob);
 
-      App.el.pLine2.textContent = `OCR (deu+rus) — страница ${idx + 1}/${total}`;
-      const r2 = await worker.recognize(pageObj.ocrBlob);
-
-      const rawText2 = (r2.data && r2.data.text) ? r2.data.text : "";
-      cleaned = App.ocr.cleanText(rawText2);
-      conf = (r2.data && typeof r2.data.confidence === "number") ? r2.data.confidence : conf;
+      const rawText2 = r2?.data?.text || "";
+      cleaned = App.ocr.cleanOcrText(rawText2);
+      conf = (typeof r2?.data?.confidence === "number") ? r2.data.confidence : conf;
     }
 
     pageObj.ocrText = cleaned;
     pageObj.ocrConfidence = conf;
 
-    const q = App.ocr.evaluateQuality(cleaned, conf);
+    const q = App.ocr.evaluatePageQuality(cleaned, conf);
     pageObj.status = q.status;
     pageObj.reason = q.reason || "";
   }
 };
-
