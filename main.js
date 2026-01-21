@@ -1,11 +1,9 @@
-// main.js — orchestrator (safe, waits for App.el)
+// main.js — orchestrator (safe, waits for App.el) + iOS picker fix
 
 (function () {
-  // 1) Telegram init (safe)
   const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
   try { if (tg) { tg.ready(); tg.expand(); } } catch (_) {}
 
-  // 2) Helpers
   function uiError(msg, err) {
     console.error(msg, err || "");
     try {
@@ -13,9 +11,7 @@
         return window.App.uiBase.uiFail(msg, err);
       }
     } catch (_) {}
-    try {
-      if (typeof window.uiFail === "function") return window.uiFail(msg, err);
-    } catch (_) {}
+    try { if (typeof window.uiFail === "function") return window.uiFail(msg, err); } catch (_) {}
     alert(msg + (err && err.message ? ("\n\n" + err.message) : ""));
   }
 
@@ -35,45 +31,37 @@
   }
 
   function getAddFilesFn() {
-    // Most common export we want:
     if (typeof window.addFiles === "function") return window.addFiles;
-
-    // If you export via App.images / App.imagePipeline:
     if (window.App && window.App.images && typeof window.App.images.addFiles === "function") return window.App.images.addFiles;
     if (window.App && window.App.imagePipeline && typeof window.App.imagePipeline.addFiles === "function") return window.App.imagePipeline.addFiles;
-
-    // Alternative namespaces:
-    if (window.ImagePipeline && typeof window.ImagePipeline.addFiles === "function") return window.ImagePipeline.addFiles;
-    if (window.imagePipeline && typeof window.imagePipeline.addFiles === "function") return window.imagePipeline.addFiles;
-
     return null;
   }
 
-  function safeCall(fn, ...args) {
-    try { if (typeof fn === "function") return fn(...args); } catch (_) {}
+  function openFilePicker(inputEl) {
+    // iOS/WebKit: showPicker() часто работает лучше
+    if (!inputEl) throw new Error("Missing file input element");
+    if (typeof inputEl.showPicker === "function") {
+      inputEl.showPicker();
+      return;
+    }
+    inputEl.click();
   }
 
-  // 3) Boot
   async function boot() {
-    // Wait until dom.js created App.el and key elements
     await waitFor(() => window.App && window.App.el && window.App.el.cameraBtn && window.App.el.filesBtn);
 
     const App = window.App;
     const el = App.el;
 
-    // Enable buttons (in case something locked them)
-    try {
-      el.cameraBtn.disabled = false;
-      el.filesBtn.disabled = false;
-    } catch (_) {}
+    // на всякий случай разблокируем
+    try { el.cameraBtn.disabled = false; el.filesBtn.disabled = false; } catch (_) {}
 
-    // --- Bind UI events ---
     el.cameraBtn.addEventListener("click", () => {
-      try { el.cameraInput.click(); } catch (e) { uiError("Не удалось открыть камеру.", e); }
+      try { openFilePicker(el.cameraInput); } catch (e) { uiError("Не удалось открыть камеру.", e); }
     });
 
     el.filesBtn.addEventListener("click", () => {
-      try { el.filesInput.click(); } catch (e) { uiError("Не удалось открыть выбор файлов.", e); }
+      try { openFilePicker(el.filesInput); } catch (e) { uiError("Не удалось открыть выбор файлов.", e); }
     });
 
     el.cameraInput.addEventListener("change", async () => {
@@ -99,40 +87,11 @@
         try { el.filesInput.value = ""; } catch (_) {}
       }
     });
-
-    el.carousel.addEventListener("scroll", () => {
-      // update counters if exists
-      safeCall(window.updateCounters);
-      safeCall(App.uiCarousel && App.uiCarousel.updateCounters);
-    });
-
-    el.analyzeBtn.addEventListener("click", async () => {
-      try {
-        // If you have a single entrypoint:
-        if (typeof window.runAnalysis === "function") return await window.runAnalysis();
-        if (App.analysis && typeof App.analysis.runAnalysis === "function") return await App.analysis.runAnalysis();
-
-        // Otherwise: analysis might already be bound elsewhere, so do nothing.
-      } catch (e) {
-        uiError("Ошибка анализа.", e);
-      }
-    });
-
-    // --- Initial UI paint ---
-    safeCall(window.renderCarousel);
-    safeCall(App.uiCarousel && App.uiCarousel.renderCarousel);
-
-    safeCall(window.updateQualityPanel);
-    safeCall(App.uiQuality && App.uiQuality.updateQualityPanel);
-
-    safeCall(window.showZeroHintIfNeeded);
-    safeCall(App.uiBase && App.uiBase.showZeroHintIfNeeded);
   }
 
-  // Start after DOM parsing
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => boot().catch(e => uiError("Ошибка инициализации. Проверь порядок подключаемых скриптов и наличие модулей.", e)));
+    document.addEventListener("DOMContentLoaded", () => boot().catch(e => uiError("Ошибка инициализации.", e)));
   } else {
-    boot().catch(e => uiError("Ошибка инициализации. Проверь порядок подключаемых скриптов и наличие модулей.", e));
+    boot().catch(e => uiError("Ошибка инициализации.", e));
   }
 })();
