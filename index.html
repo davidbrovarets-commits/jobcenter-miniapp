@@ -43,9 +43,7 @@
       </div>
 
       <!-- Подсказка при 0 страниц -->
-      <div id="zeroHint" class="hintBox">
-        Для анализа, пожалуйста, добавьте файл.
-      </div>
+      <div id="zeroHint" class="hintBox">Для анализа, пожалуйста, добавьте файл.</div>
 
       <!-- Подсказка при превышении лимита -->
       <div id="limitHint" class="hintBox">
@@ -121,22 +119,22 @@
   </div>
 
   <!-- 1) Telegram Mini App SDK -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <!-- 2) Tesseract.js (must be BEFORE ocr.js) -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=210"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=210"></script>
 
   <!-- 3) App modules (order matters) -->
-  <script src="./config.js?v=210"></script>
-  <script src="./state.js?v=210"></script>
-  <script src="./dom.js?v=210"></script>
-  <script src="./ui-carousel.js?v=210"></script>
-  <script src="./ui-quality.js?v=210"></script>
-  <script src="./image-pipeline.js?v=210"></script>
-  <script src="./ocr.js?v=210"></script>
-  <script src="./analysis.js?v=210"></script>
+  <script defer src="./config.js?v=210"></script>
+  <script defer src="./state.js?v=210"></script>
+  <script defer src="./dom.js?v=210"></script>
+  <script defer src="./ui-carousel.js?v=210"></script>
+  <script defer src="./ui-quality.js?v=210"></script>
+  <script defer src="./image-pipeline.js?v=210"></script>
+  <script defer src="./ocr.js?v=210"></script>
+  <script defer src="./analysis.js?v=210"></script>
 
   <!-- 4) Orchestrator (last) -->
-  <script src="./main.js?v=210"></script>
+  <script defer src="./main.js?v=210"></script>
 </body>
 </html>
