@@ -91,6 +91,7 @@ h1{
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
 }
 
 .btn:hover{ background: var(--btnHover); }
@@ -143,6 +144,16 @@ h1{
   display:none;
   color: var(--muted);
   font-size: 13px;
+}
+
+/* iOS Telegram: input must NOT be display:none.
+   We hide it but keep it "real" for label->picker */
+.nativeInput{
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0.01;
 }
 
 /* Carousel */
