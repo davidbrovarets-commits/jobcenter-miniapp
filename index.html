@@ -4,27 +4,7 @@
   <meta charset="UTF-8" />
   <title>Jobcenter Letter Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="./style.css?v=212" />
-
-  <style>
-    /* iOS/Telegram: НЕ display:none */
-    .fileInputNative {
-      position: absolute;
-      left: -9999px;
-      top: 0;
-      width: 1px;
-      height: 1px;
-      opacity: 0.01;
-    }
-
-    /* label выглядит как кнопка (используем твои .btn стили) */
-    .btnLabel {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css?v=300" />
 </head>
 
 <body>
@@ -40,25 +20,21 @@
         Это не юридическая консультация. Сервис показывает только: нужно ли действие по письму.
       </p>
 
-      <!-- Нативные input -->
-      <input id="cameraInput" class="fileInputNative" type="file" accept="image/*" capture="environment" />
-      <input id="filesInput"  class="fileInputNative" type="file" accept="image/*" multiple />
-
-      <!-- Вместо кнопок: LABEL (нативный триггер) -->
+      <!-- iOS Telegram FIX:
+           используем label(for=input), чтобы именно "нативный" пикер открывался -->
       <div class="actionsRow">
-        <label id="cameraBtn" class="btn btnLabel" for="cameraInput" role="button" tabindex="0">
-          Сделать фото
-        </label>
-
-        <label id="filesBtn" class="btn btnLabel" for="filesInput" role="button" tabindex="0">
-          Выбрать файлы
-        </label>
+        <label id="cameraLabel" class="btn" for="cameraInput">Сделать фото</label>
+        <label id="filesLabel" class="btn" for="filesInput">Выбрать файлы</label>
       </div>
 
       <div class="smallNote">
         <b>Важно:</b> PDF в Telegram Mini App часто не обрабатывается. Для надёжного результата используйте фото/скрин страниц письма.<br>
         <b>Лимит:</b> максимум <span id="maxPagesText">15</span> страниц за один анализ.
       </div>
+
+      <!-- Inputs: NOT display:none (iOS can break it) -->
+      <input id="cameraInput" class="nativeInput" type="file" accept="image/*" capture="environment" />
+      <input id="filesInput"  class="nativeInput" type="file" accept="image/*" multiple />
 
       <!-- Карусель -->
       <div id="carouselWrap" class="carouselWrap">
@@ -69,11 +45,17 @@
         <div id="carousel" class="carousel"></div>
       </div>
 
-      <div id="zeroHint" class="hintBox">Для анализа, пожалуйста, добавьте файл.</div>
+      <!-- Подсказка при 0 страниц -->
+      <div id="zeroHint" class="hintBox">
+        Для анализа, пожалуйста, добавьте файл.
+      </div>
+
+      <!-- Подсказка при превышении лимита -->
       <div id="limitHint" class="hintBox">
         Достигнут лимит страниц для одного анализа. Добавьте меньше страниц или сделайте второй анализ.
       </div>
 
+      <!-- Панель качества (BAD/WARN) -->
       <div id="qualityPanel" class="panel">
         <div id="qualityTitle" class="panelTitle"></div>
         <div id="qualityText" class="panelText"></div>
@@ -93,8 +75,12 @@
         <div id="qualityList" class="pageList"></div>
       </div>
 
-      <button id="analyzeBtn" class="btnPrimary" type="button" disabled>Готово → Анализ</button>
+      <!-- Кнопка запуска -->
+      <button id="analyzeBtn" class="btnPrimary" type="button" disabled>
+        Готово → Анализ
+      </button>
 
+      <!-- Прогресс -->
       <div id="progressBox" class="progressBox">
         <div class="progressRow">
           <div class="ring" aria-hidden="true"></div>
@@ -103,11 +89,12 @@
             <div id="pLine2" class="t2">Контролируем содержание письма</div>
           </div>
         </div>
-        <div id="lockNote" class="lockNote">
+        <div class="lockNote">
           Во время анализа добавление и удаление страниц временно недоступны.
         </div>
       </div>
 
+      <!-- Результат -->
       <div id="resultBox" class="panel">
         <div id="doneBanner" class="doneBanner">
           <div class="doneTitle">Анализ завершён</div>
@@ -132,26 +119,31 @@
         </div>
       </div>
 
-      <small class="version">v2.12 · iOS native label→input picker</small>
+      <small class="version">
+        v3.00 · stable modular · iOS label→input picker · addFiles renders instantly
+      </small>
     </div>
   </div>
 
-  <!-- 1) Telegram -->
-  <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- 2) Tesseract -->
-  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=212"></script>
+  <!-- 1) Telegram Mini App SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <!-- 3) Modules (order matters) -->
-  <script defer src="./config.js?v=212"></script>
-  <script defer src="./state.js?v=212"></script>
-  <script defer src="./dom.js?v=212"></script>
-  <script defer src="./ui-carousel.js?v=212"></script>
-  <script defer src="./ui-quality.js?v=212"></script>
-  <script defer src="./image-pipeline.js?v=212"></script>
-  <script defer src="./ocr.js?v=212"></script>
-  <script defer src="./analysis.js?v=212"></script>
+  <!-- 2) Tesseract.js (must be BEFORE ocr.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js?v=300"></script>
 
-  <!-- 4) main -->
-  <script defer src="./main.js?v=212"></script>
+  <!-- 3) App modules (order matters) -->
+  <script src="./config.js?v=300"></script>
+  <script src="./state.js?v=300"></script>
+  <script src="./dom.js?v=300"></script>
+
+  <script src="./ui-carousel.js?v=300"></script>
+  <script src="./ui-quality.js?v=300"></script>
+  <script src="./image-pipeline.js?v=300"></script>
+
+  <script src="./ocr.js?v=300"></script>
+  <script src="./analysis.js?v=300"></script>
+
+  <!-- 4) Orchestrator LAST -->
+  <script src="./main.js?v=300"></script>
 </body>
 </html>
