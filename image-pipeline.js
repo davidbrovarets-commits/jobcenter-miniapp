@@ -1,48 +1,53 @@
-/* image-pipeline.js
-   - image load + resize -> blobs
-   - addFiles pipeline (camera/files inputs)
-   - exports window.addFiles for main.js compatibility
-*/
-
+// image-pipeline.js — safe & modular
 (function () {
-  // Ensure App namespace
+  "use strict";
+
+  // ---------------------------
+  // Namespace safety
+  // ---------------------------
   window.App = window.App || {};
-  const App = window.App;
-
   App.images = App.images || {};
+  App.state = App.state || {};
+  App.state.pages = App.state.pages || [];
 
-  // ---------------- Guards ----------------
-  function must(name, v) {
-    if (!v) throw new Error(`Missing dependency: ${name}`);
-    return v;
+  App.uiBase = App.uiBase || {};
+  App.uiCarousel = App.uiCarousel || {};
+  App.uiQuality = App.uiQuality || {};
+  App.stateApi = App.stateApi || {};
+
+  // ---------------------------
+  // Helpers
+  // ---------------------------
+  function uid() {
+    return Math.random().toString(16).slice(2) + Date.now().toString(16);
   }
 
-  // ---------------- Utils ----------------
-  function safeRevoke(url) {
-    try { URL.revokeObjectURL(url); } catch (_) {}
+  function safe(fn) {
+    try { fn && fn(); } catch (_) {}
   }
 
-  // ---------------- Image load ----------------
-  async function loadImageFromFile(file) {
+  function requireEl() {
+    if (!App.el) throw new Error("Not ready: App.el");
+    return App.el;
+  }
+
+  // ---------------------------
+  // Image helpers
+  // ---------------------------
+  async function loadImage(file) {
     const url = URL.createObjectURL(file);
-    try {
-      const img = new Image();
-      img.decoding = "async";
-      img.src = url;
+    const img = new Image();
+    img.src = url;
 
-      await new Promise((res, rej) => {
-        img.onload = () => res();
-        img.onerror = () => rej(new Error("Image load failed"));
-      });
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = () => rej(new Error("Image load failed"));
+    });
 
-      return { img, url };
-    } catch (e) {
-      safeRevoke(url);
-      throw e;
-    }
+    return { img, url };
   }
 
-  async function renderJpegBlob(img, maxSide, quality) {
+  async function renderJpeg(img, maxSide, quality) {
     const w = img.naturalWidth || img.width;
     const h = img.naturalHeight || img.height;
 
@@ -57,69 +62,56 @@
     const ctx = canvas.getContext("2d", { alpha: false });
     ctx.drawImage(img, 0, 0, nw, nh);
 
-    const blob = await new Promise((resolve) => {
-      canvas.toBlob((b) => resolve(b), "image/jpeg", quality);
-    });
-
-    if (!blob) throw new Error("toBlob failed");
-    return blob;
+    return await new Promise(res =>
+      canvas.toBlob(b => res(b), "image/jpeg", quality)
+    );
   }
 
-  // Create: thumbUrl + blobs for OCR
   async function createThumbAndOcr(file) {
-    const { img, url } = await loadImageFromFile(file);
+    const { img, url } = await loadImage(file);
     try {
-      // Values can be taken from config if you later move them there
-      const thumbBlob   = await renderJpegBlob(img, 650, 0.75);
-      const fastOcrBlob = await renderJpegBlob(img, 900, 0.78);
-      const ocrBlob     = await renderJpegBlob(img, 1600, 0.82);
+      const thumbBlob = await renderJpeg(img, 650, 0.75);
+      const fastOcrBlob = await renderJpeg(img, 900, 0.78);
+      const ocrBlob = await renderJpeg(img, 1600, 0.82);
 
-      const thumbUrl = URL.createObjectURL(thumbBlob);
-      return { thumbUrl, fastOcrBlob, ocrBlob };
+      return {
+        thumbUrl: URL.createObjectURL(thumbBlob),
+        fastOcrBlob,
+        ocrBlob
+      };
     } finally {
-      safeRevoke(url);
+      try { URL.revokeObjectURL(url); } catch (_) {}
     }
   }
 
-  App.images.createThumbAndOcr = createThumbAndOcr;
-
-  // ---------------- addFiles pipeline ----------------
+  // ---------------------------
+  // Core: addFiles
+  // ---------------------------
   async function addFiles(fileList, onAddedOne) {
-    // dependencies
-    must("App.config", App.config);
-    must("App.state", App.state);
-    must("App.el", App.el);
-    must("App.uiBase", App.uiBase);
-    must("App.uiCarousel", App.uiCarousel);
-    must("App.uiQuality", App.uiQuality);
+    const el = requireEl();
 
-    const MAX_PAGES = App.config.MAX_PAGES;
+    const files = Array.from(fileList || [])
+      .filter(f => f && f.type && f.type.startsWith("image/"));
 
-    // only images
-    const arr = Array.from(fileList || []).filter(
-      (f) => f && f.type && f.type.startsWith("image/")
-    );
-    if (!arr.length) return;
+    if (!files.length) return;
 
-    // limit
-    const free = MAX_PAGES - App.state.pages.length;
+    const MAX = App.config?.MAX_PAGES || 15;
+    const free = MAX - App.state.pages.length;
     if (free <= 0) {
-      App.uiBase.showLimitHint(true);
+      safe(() => App.uiBase.showLimitHint(true));
       return;
     }
 
-    const slice = arr.slice(0, free);
-    App.uiBase.showLimitHint(arr.length > free);
+    const slice = files.slice(0, free);
+    safe(() => App.uiBase.showLimitHint(files.length > free));
+    safe(() => App.uiBase.resetUiAfterDataChange());
 
-    // reset result/progress UI
-    App.uiBase.resetUiAfterDataChange();
-
-    // process sequentially (stable for iOS WebView)
     for (const f of slice) {
-      const { thumbUrl, fastOcrBlob, ocrBlob } = await createThumbAndOcr(f);
+      const { thumbUrl, fastOcrBlob, ocrBlob } =
+        await createThumbAndOcr(f);
 
       App.state.pages.push({
-        id: App.stateApi.uid(),
+        id: App.stateApi.uid ? App.stateApi.uid() : uid(),
         thumbUrl,
         fastOcrBlob,
         ocrBlob,
@@ -133,20 +125,20 @@
       if (typeof onAddedOne === "function") onAddedOne();
     }
 
-    // clear inputs to allow re-pick same photo
-    if (App.el.cameraInput) App.el.cameraInput.value = "";
-    if (App.el.filesInput) App.el.filesInput.value = "";
+    // clear inputs (important for iOS)
+    if (el.cameraInput) el.cameraInput.value = "";
+    if (el.filesInput) el.filesInput.value = "";
 
-    // re-render
-    App.uiCarousel.renderCarousel();
-    App.uiQuality.updateQualityPanel();
-    App.uiBase.showZeroHintIfNeeded();
+    // UI refresh
+    safe(() => App.uiCarousel.renderCarousel());
+    safe(() => App.uiQuality.updateQualityPanel());
+    safe(() => App.uiBase.showZeroHintIfNeeded());
   }
 
-  // Attach into modules
+  // ---------------------------
+  // Exports
+  // ---------------------------
   App.images.addFiles = addFiles;
-
-  // ---- EXPORTS (for main.js or older code expecting global) ----
   window.addFiles = addFiles;
 
 })();
