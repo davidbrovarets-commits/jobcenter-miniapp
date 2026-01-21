@@ -17,6 +17,7 @@ App.carouselUi = {
       const dist = Math.abs(s.offsetLeft - left);
       if (dist < bestDist) { bestDist = dist; best = i; }
     });
+
     return best;
   },
 
@@ -26,11 +27,12 @@ App.carouselUi = {
 
     pagesCount.textContent = "Добавлено: " + pages.length;
 
-    if (pages.length === 0) {
+    if (!pages.length) {
       pageIndex.textContent = "Страница: 0 / 0";
-    } else {
-      pageIndex.textContent = "Страница: " + (App.carouselUi.getVisibleIndex() + 1) + " / " + pages.length;
+      return;
     }
+
+    pageIndex.textContent = "Страница: " + (App.carouselUi.getVisibleIndex() + 1) + " / " + pages.length;
   },
 
   scrollToPage(index) {
@@ -41,16 +43,32 @@ App.carouselUi = {
     carousel.scrollTo({ left: s.offsetLeft, behavior: "smooth" });
   },
 
-  renderCarousel(removePageFn) {
+  updateSlideByIndex(idx) {
+    const { carousel } = App.el;
+    const slide = carousel.querySelectorAll(".slide")[idx];
+    if (!slide) return;
+
+    const p = App.state.pages[idx];
+
+    slide.classList.remove("ok","warn","bad");
+    slide.classList.add(p.status);
+
+    const badNote = slide.querySelector(".badNote");
+    const warnNote = slide.querySelector(".warnNote");
+
+    if (badNote) badNote.textContent = p.reason || "Обнаружена плохо читаемая страница. Рекомендуем заменить для точного результата.";
+    if (warnNote) warnNote.textContent = p.reason || "Текст распознан частично. Для точности лучше переснять страницу.";
+  },
+
+  renderCarousel() {
     const { pages } = App.state;
-    const { carousel, carouselWrap } = App.el;
+    const { carouselWrap, carousel } = App.el;
 
     carousel.innerHTML = "";
 
-    if (pages.length === 0) {
+    if (!pages.length) {
       carouselWrap.style.display = "none";
       App.carouselUi.updateCounters();
-      App.uiBase.showZeroHintIfNeeded();
       return;
     }
 
@@ -76,12 +94,10 @@ App.carouselUi = {
       del.className = "delBtn";
       del.type = "button";
       del.textContent = "Удалить";
-      del.dataset.del = p.id;
       del.disabled = App.state.isLocked;
-
       del.addEventListener("click", () => {
         if (App.state.isLocked) return;
-        removePageFn(p.id);
+        App.images.removePage(p.id);
       });
 
       meta.appendChild(pageNo);
@@ -104,21 +120,5 @@ App.carouselUi = {
     });
 
     App.carouselUi.updateCounters();
-    App.uiBase.showZeroHintIfNeeded();
-  },
-
-  updateSlideByIndex(idx) {
-    const slide = App.el.carousel.querySelectorAll(".slide")[idx];
-    if (!slide) return;
-
-    slide.classList.remove("ok","warn","bad");
-    slide.classList.add(App.state.pages[idx].status);
-
-    const badNote = slide.querySelector(".badNote");
-    const warnNote = slide.querySelector(".warnNote");
-
-    if (badNote) badNote.textContent = App.state.pages[idx].reason || "Обнаружена плохо читаемая страница. Рекомендуем заменить для точного результата.";
-    if (warnNote) warnNote.textContent = App.state.pages[idx].reason || "Текст распознан частично. Для точности лучше переснять страницу.";
   }
 };
-
